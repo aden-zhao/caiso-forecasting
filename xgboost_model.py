@@ -12,6 +12,10 @@ Requires: pip install xgboost
 
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+import random
+N_RANDOM_FOLDS = 50
+RANDOM_SEED = 42
 
 try:
     from xgboost import XGBRegressor
@@ -23,7 +27,7 @@ except ModuleNotFoundError as exc:
 # Config
 DATA_PATH = "caiso_dataset_20200101_to_20241231.csv"
 LAG_HOURS = 168
-TEST_WINDOW_HOURS = 24
+TEST_WINDOW_HOURS = 168
 MIN_TRAIN_SIZE = 336  # 14 days minimum for fitting model
 
 # Load data
@@ -80,14 +84,21 @@ print("Features (X):", list(X.columns))
 print("Feature count:", len(feature_cols))
 print()
 
-# Walk-forward evaluation
+# Walk-forward evaluation on 50 randomly sampled folds
 predictions = []
 actuals = []
 fold_results = []
 n = len(df_model)
 
-for test_start in range(MIN_TRAIN_SIZE, n, TEST_WINDOW_HOURS):
-    test_end = min(test_start + TEST_WINDOW_HOURS, n)
+# Valid test start positions
+valid_test_starts = list(range(MIN_TRAIN_SIZE, n - TEST_WINDOW_HOURS + 1, TEST_WINDOW_HOURS))
+
+# Sample 50 random folds (or fewer if dataset is smaller)
+random.seed(RANDOM_SEED)
+sampled_test_starts = sorted(random.sample(valid_test_starts, k=min(N_RANDOM_FOLDS, len(valid_test_starts))))
+
+for fold_num, test_start in enumerate(sampled_test_starts, start=1):
+    test_end = test_start + TEST_WINDOW_HOURS
 
     X_train = X.iloc[:test_start]
     y_train = y.iloc[:test_start]
@@ -101,9 +112,9 @@ for test_start in range(MIN_TRAIN_SIZE, n, TEST_WINDOW_HOURS):
         subsample=0.8,
         colsample_bytree=0.8,
         objective="reg:squarederror",
-        eval_metric="mae",
         random_state=42,
     )
+
     model.fit(X_train, y_train)
     preds = model.predict(X_test)
 
@@ -111,11 +122,19 @@ for test_start in range(MIN_TRAIN_SIZE, n, TEST_WINDOW_HOURS):
     actuals.extend(y_test.values)
 
     fold_mae = np.mean(np.abs(preds - y_test.values))
-    ts_start = df_model.iloc[test_start]["time_utc"]
-    ts_end = df_model.iloc[test_end - 1]["time_utc"]
-    fold_results.append({"fold": len(fold_results) + 1, "MAE": fold_mae})
-    print(f"Fold {len(fold_results)}: {ts_start} → {ts_end}  MAE = {fold_mae:.2f} MW")
+    ts_start = df_model.iloc[test_start]["time_utc"].date() if "time_utc" in df_model.columns else df_model.iloc[test_start]["timestamp"].date()
+    ts_end = df_model.iloc[test_end - 1]["time_utc"].date() if "time_utc" in df_model.columns else df_model.iloc[test_end - 1]["timestamp"].date()
 
+    fold_results.append({
+        "fold": fold_num,
+        "test_start_idx": test_start,
+        "start_date": ts_start,
+        "end_date": ts_end,
+        "MAE": fold_mae,
+    })
+
+    print(f"Fold {fold_num}: {ts_start} → {ts_end}  MAE = {fold_mae:.2f} MW")
+    
 # Overall metrics
 predictions = np.array(predictions)
 actuals = np.array(actuals)
@@ -126,3 +145,20 @@ print(f"Overall MAE (xgboost): {overall_mae:.2f} MW")
 print(f"Total predictions: {len(predictions)}")
 print(f"Mean actual load: {np.mean(actuals):.2f} MW")
 print(f"MAE as % of mean load: {100 * overall_mae / np.mean(actuals):.2f}%")
+
+
+# ==========================
+# Plot predictions vs actual
+# ==========================
+
+plt.figure(figsize=(12,6))
+plt.plot(actuals, label="Actual Load", linewidth=2)
+plt.plot(predictions, label="Predicted Load", alpha=0.8)
+
+plt.title(f"XGBoost Forecast vs Actual Load (First 50 Walk-Forward Folds)")
+plt.xlabel("Prediction Index")
+plt.ylabel("Load (MW)")
+plt.legend()
+plt.grid(True)
+
+plt.show()

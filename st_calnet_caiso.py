@@ -38,6 +38,8 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
 
+import matplotlib.pyplot as plt
+
 
 # =========================
 # Config
@@ -411,6 +413,61 @@ def save_attention_csv(attn: np.ndarray, seq_len: int, path: str = "st_calnet_te
     pd.DataFrame(attn, columns=cols).to_csv(path, index=False)
 
 
+
+def plot_loss_curves(train_losses: List[float], val_losses: List[float]) -> None:
+    plt.figure(figsize=(10, 5))
+    plt.plot(train_losses, label="Train Loss")
+    plt.plot(val_losses, label="Validation Loss")
+    plt.xlabel("Epoch")
+    plt.ylabel("MSE Loss")
+    plt.title("ST-CALNet Training and Validation Loss")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_predictions(timestamps: np.ndarray, y_true: np.ndarray, y_pred: np.ndarray) -> None:
+    plt.figure(figsize=(14, 6))
+    plt.plot(pd.to_datetime(timestamps), y_true, label="Actual Load", linewidth=2)
+    plt.plot(pd.to_datetime(timestamps), y_pred, label="Predicted Load", alpha=0.8)
+    plt.xlabel("Timestamp")
+    plt.ylabel("Load (MW)")
+    plt.title("ST-CALNet Test Set: Actual vs Predicted Load")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_prediction_scatter(y_true: np.ndarray, y_pred: np.ndarray) -> None:
+    plt.figure(figsize=(6, 6))
+    plt.scatter(y_true, y_pred, alpha=0.35)
+    min_val = min(y_true.min(), y_pred.min())
+    max_val = max(y_true.max(), y_pred.max())
+    plt.plot([min_val, max_val], [min_val, max_val], "r--")
+    plt.xlabel("Actual Load (MW)")
+    plt.ylabel("Predicted Load (MW)")
+    plt.title("ST-CALNet Prediction Scatter")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_attention(avg_attention: np.ndarray, seq_len: int) -> None:
+    labels = [f"t-{seq_len - i}" for i in range(seq_len)]
+
+    plt.figure(figsize=(10, 5))
+    plt.bar(labels, avg_attention)
+    plt.xlabel("Historical Time Step")
+    plt.ylabel("Mean Attention Weight")
+    plt.title("Average Attention Over Historical Steps")
+    plt.xticks(rotation=45)
+    plt.grid(True, axis="y")
+    plt.tight_layout()
+    plt.show()
+    
+    
 def main() -> None:
     set_seed(RANDOM_SEED)
 
@@ -465,10 +522,14 @@ def main() -> None:
     best_val_loss = float("inf")
     patience_counter = 0
 
+    train_losses = []
+    val_losses = []
     print("Starting training...\n")
     for epoch in range(1, MAX_EPOCHS + 1):
         train_loss = run_epoch(model, train_loader, criterion, optimizer)
         val_loss = run_epoch(model, val_loader, criterion, optimizer=None)
+        train_losses.append(train_loss)
+        val_losses.append(val_loss)
 
         print(
             f"Epoch {epoch:03d} | "
@@ -526,6 +587,12 @@ def main() -> None:
     save_attention_csv(test_attn, seq_len=SEQ_LEN, path="st_calnet_test_attention.csv")
 
     avg_attention = test_attn.mean(axis=0)
+    
+    plot_loss_curves(train_losses, val_losses)
+    plot_predictions(test_ts, test_true, test_pred)
+    plot_prediction_scatter(test_true, test_pred)
+    plot_attention(avg_attention, SEQ_LEN)
+
     attention_df = pd.DataFrame(
         {
             "history_step": [f"t-{SEQ_LEN - i}" for i in range(SEQ_LEN)],
