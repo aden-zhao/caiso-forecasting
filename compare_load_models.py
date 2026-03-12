@@ -52,10 +52,10 @@ METRICS = {
         "mae_pct": 3.54,
     },
     "Random Forest": {
-        "mae_mw": None,
-        "total_predictions": None,
-        "mean_actual_load": None,
-        "mae_pct": None,
+        "mae_mw": 930.44,
+        "total_predictions": 43335,
+        "mean_actual_load": 25305.70,
+        "mae_pct": 3.68,
     },
     "ST-CALNet": {
         "mae_mw": 595.879,
