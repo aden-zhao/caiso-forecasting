@@ -31,14 +31,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+import matplotlib
+matplotlib.use("Agg")   # save plots to files; works in both interactive and headless runs
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
-
-import matplotlib.pyplot as plt
 
 
 # =========================
@@ -54,18 +55,18 @@ TRAIN_FRAC = 0.70
 VAL_FRAC = 0.15
 TEST_FRAC = 0.15
 
-BATCH_SIZE = 32
+BATCH_SIZE = 64         # was 32; larger batch speeds up training with bigger hidden
 LEARNING_RATE = 1e-3
 MAX_EPOCHS = 100
-PATIENCE = 5
+PATIENCE = 15           # was 5; original model was stopping too early
 WEIGHT_DECAY = 1e-5
 RANDOM_SEED = 42
 
-CONV_CHANNELS = 64
+CONV_CHANNELS = 128     # was 64
 CONV_KERNEL_SIZE = 3
-LSTM_HIDDEN = 64
-ATTN_DIM = 64
-DROPOUT = 0.10
+LSTM_HIDDEN = 128       # was 64
+ATTN_DIM = 128          # was 64
+DROPOUT = 0.15          # was 0.10; slightly more regularization for larger model
 
 NUM_WORKERS = 0
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -116,6 +117,12 @@ def load_and_prepare_dataframe(csv_path: str, region: str) -> Tuple[pd.DataFrame
     df = df[df[TARGET_COL].notna()].copy()
 
     df = add_cyclical_time_features(df, TIMESTAMP_COL)
+
+    # Explicit lag features give the model weekly/daily context without
+    # requiring a longer (and slower) sequence window.
+    df["load_lag_24"]  = df[TARGET_COL].shift(24)
+    df["load_lag_168"] = df[TARGET_COL].shift(168)
+    df = df.dropna().reset_index(drop=True)
 
     # Use all numeric non-constant columns except identifiers.
     exclude = {"region", "time_key", TIMESTAMP_COL}
@@ -415,57 +422,60 @@ def save_attention_csv(attn: np.ndarray, seq_len: int, path: str = "st_calnet_te
 
 
 def plot_loss_curves(train_losses: List[float], val_losses: List[float]) -> None:
-    plt.figure(figsize=(10, 5))
-    plt.plot(train_losses, label="Train Loss")
-    plt.plot(val_losses, label="Validation Loss")
-    plt.xlabel("Epoch")
-    plt.ylabel("MSE Loss")
-    plt.title("ST-CALNet Training and Validation Loss")
-    plt.legend()
-    plt.grid(True)
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.plot(train_losses, label="Train Loss")
+    ax.plot(val_losses, label="Validation Loss")
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("MSE Loss")
+    ax.set_title("ST-CALNet Training and Validation Loss")
+    ax.legend()
+    ax.grid(True)
     plt.tight_layout()
-    plt.show()
+    fig.savefig("st_calnet_loss_curve.png", dpi=150)
+    plt.close(fig)
 
 
 def plot_predictions(timestamps: np.ndarray, y_true: np.ndarray, y_pred: np.ndarray) -> None:
-    plt.figure(figsize=(14, 6))
-    plt.plot(pd.to_datetime(timestamps), y_true, label="Actual Load", linewidth=2)
-    plt.plot(pd.to_datetime(timestamps), y_pred, label="Predicted Load", alpha=0.8)
-    plt.xlabel("Timestamp")
-    plt.ylabel("Load (MW)")
-    plt.title("ST-CALNet Test Set: Actual vs Predicted Load")
-    plt.legend()
-    plt.grid(True)
+    fig, ax = plt.subplots(figsize=(14, 6))
+    ax.plot(pd.to_datetime(timestamps), y_true, label="Actual Load", linewidth=2)
+    ax.plot(pd.to_datetime(timestamps), y_pred, label="Predicted Load", alpha=0.8)
+    ax.set_xlabel("Timestamp")
+    ax.set_ylabel("Load (MW)")
+    ax.set_title("ST-CALNet Test Set: Actual vs Predicted Load")
+    ax.legend()
+    ax.grid(True)
     plt.tight_layout()
-    plt.show()
+    fig.savefig("st_calnet_test_predictions.png", dpi=150)
+    plt.close(fig)
 
 
 def plot_prediction_scatter(y_true: np.ndarray, y_pred: np.ndarray) -> None:
-    plt.figure(figsize=(6, 6))
-    plt.scatter(y_true, y_pred, alpha=0.35)
+    fig, ax = plt.subplots(figsize=(6, 6))
+    ax.scatter(y_true, y_pred, alpha=0.35, s=3)
     min_val = min(y_true.min(), y_pred.min())
     max_val = max(y_true.max(), y_pred.max())
-    plt.plot([min_val, max_val], [min_val, max_val], "r--")
-    plt.xlabel("Actual Load (MW)")
-    plt.ylabel("Predicted Load (MW)")
-    plt.title("ST-CALNet Prediction Scatter")
-    plt.grid(True)
+    ax.plot([min_val, max_val], [min_val, max_val], "r--")
+    ax.set_xlabel("Actual Load (MW)")
+    ax.set_ylabel("Predicted Load (MW)")
+    ax.set_title("ST-CALNet Prediction Scatter")
+    ax.grid(True)
     plt.tight_layout()
-    plt.show()
+    fig.savefig("st_calnet_scatter.png", dpi=150)
+    plt.close(fig)
 
 
 def plot_attention(avg_attention: np.ndarray, seq_len: int) -> None:
     labels = [f"t-{seq_len - i}" for i in range(seq_len)]
-
-    plt.figure(figsize=(10, 5))
-    plt.bar(labels, avg_attention)
-    plt.xlabel("Historical Time Step")
-    plt.ylabel("Mean Attention Weight")
-    plt.title("Average Attention Over Historical Steps")
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.bar(labels, avg_attention)
+    ax.set_xlabel("Historical Time Step")
+    ax.set_ylabel("Mean Attention Weight")
+    ax.set_title("Average Attention Over Historical Steps")
     plt.xticks(rotation=45)
-    plt.grid(True, axis="y")
+    ax.grid(True, axis="y")
     plt.tight_layout()
-    plt.show()
+    fig.savefig("st_calnet_attention.png", dpi=150)
+    plt.close(fig)
     
     
 def main() -> None:
@@ -604,11 +614,38 @@ def main() -> None:
     print(attention_df.head(10).to_string(index=False))
     print()
 
+    # Update model comparison summary
+    mean_load = float(np.mean(test_true))
+    row = {
+        "model":             "ST-CALNet",
+        "mae_mw":            round(test_metrics["MAE"],  3),
+        "total_predictions": len(test_true),
+        "mean_actual_load":  round(mean_load, 2),
+        "mae_pct":           round(100 * test_metrics["MAE"] / mean_load, 2),
+        "rmse_mw":           round(test_metrics["RMSE"], 3),
+        "mape_pct":          round(test_metrics["MAPE"], 2),
+        "r2":                round(test_metrics["R2"],   3),
+        "has_result":        True,
+    }
+    comp_path = Path("model_comparison_summary.csv")
+    if comp_path.exists():
+        comp_df = pd.read_csv(comp_path)
+        comp_df = comp_df[comp_df["model"] != "ST-CALNet"]
+        comp_df = pd.concat([comp_df, pd.DataFrame([row])], ignore_index=True)
+    else:
+        comp_df = pd.DataFrame([row])
+    comp_df.to_csv(comp_path, index=False)
+
     print("Done.")
     print("Artifacts written:")
     print("  -", MODEL_OUT)
     print("  - st_calnet_test_predictions.csv")
     print("  - st_calnet_test_attention.csv")
+    print("  - st_calnet_loss_curve.png")
+    print("  - st_calnet_test_predictions.png")
+    print("  - st_calnet_scatter.png")
+    print("  - st_calnet_attention.png")
+    print("  - model_comparison_summary.csv  (updated)")
 
 
 if __name__ == "__main__":
