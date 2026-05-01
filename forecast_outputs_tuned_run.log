@@ -1,0 +1,95 @@
+Loading filtered.csv ...
+Regions found: ['caiso', 'mwd', 'pge', 'sce', 'sdge', 'vea']
+
+=== CAISO ===
+train=34,458  val=8,614  test=10,770  features=37
+test span: 2024-12-07 10:00:00 -> 2026-03-01 07:00:00
+  tuning Random Forest ...
+    best val MAE=1081.92  params={'n_estimators': 400, 'max_depth': 25, 'min_samples_leaf': 1, 'max_features': 'sqrt'}
+  tuning XGBoost ...
+    best val MAE=1058.61  n_estimators=781  params={'max_depth': 6, 'learning_rate': 0.03, 'min_child_weight': 1, 'subsample': 0.7, 'colsample_bytree': 0.7, 'reg_alpha': 0.1, 'reg_lambda': 1.0}
+  Linear Regression  TEST  MAE=1448.92  RMSE=1926.36  MAPE=5.61%  R²=0.760
+  Random Forest      TEST  MAE=1118.61  RMSE=1514.91  MAPE=4.30%  R²=0.851
+  XGBoost            TEST  MAE=1132.64  RMSE=1541.43  MAPE=4.35%  R²=0.846
+
+=== MWD ===
+train=1,641  val=410  test=514  features=37
+test span: 2026-04-03 19:00:00 -> 2026-04-25 06:00:00
+  WARNING: large train/test load drift (train mean=55.8 MW, test mean=172.4 MW).
+  tuning Random Forest ...
+    best val MAE=20.49  params={'n_estimators': 400, 'max_depth': 20, 'min_samples_leaf': 1, 'max_features': 0.5}
+  tuning XGBoost ...
+    best val MAE=22.74  n_estimators=127  params={'max_depth': 5, 'learning_rate': 0.08, 'min_child_weight': 5, 'subsample': 0.8, 'colsample_bytree': 0.9, 'reg_alpha': 0.0, 'reg_lambda': 0.5}
+  Linear Regression  TEST  MAE=23.80  RMSE=30.97  MAPE=13.59%  R²=-12.087
+  Random Forest      TEST  MAE=63.77  RMSE=65.59  MAPE=36.95%  R²=-57.693
+  XGBoost            TEST  MAE=61.77  RMSE=64.02  MAPE=35.82%  R²=-54.906
+
+=== PGE ===
+train=35,301  val=8,825  test=11,033  features=37
+test span: 2025-01-20 08:00:00 -> 2026-04-25 06:00:00
+  tuning Random Forest ...
+    best val MAE=563.45  params={'n_estimators': 200, 'max_depth': 20, 'min_samples_leaf': 1, 'max_features': 'sqrt'}
+  tuning XGBoost ...
+    best val MAE=509.97  n_estimators=1105  params={'max_depth': 4, 'learning_rate': 0.08, 'min_child_weight': 3, 'subsample': 0.7, 'colsample_bytree': 0.9, 'reg_alpha': 0.1, 'reg_lambda': 0.5}
+  Linear Regression  TEST  MAE=639.93  RMSE=834.87  MAPE=6.03%  R²=0.754
+  Random Forest      TEST  MAE=485.04  RMSE=662.48  MAPE=4.67%  R²=0.845
+  XGBoost            TEST  MAE=430.13  RMSE=575.15  MAPE=4.08%  R²=0.883
+
+=== SCE ===
+train=35,301  val=8,825  test=11,033  features=37
+test span: 2025-01-20 08:00:00 -> 2026-04-25 06:00:00
+  tuning Random Forest ...
+    best val MAE=682.59  params={'n_estimators': 300, 'max_depth': 25, 'min_samples_leaf': 2, 'max_features': 'sqrt'}
+  tuning XGBoost ...
+    best val MAE=677.77  n_estimators=80  params={'max_depth': 8, 'learning_rate': 0.08, 'min_child_weight': 1, 'subsample': 1.0, 'colsample_bytree': 0.7, 'reg_alpha': 1.0, 'reg_lambda': 2.0}
+  Linear Regression  TEST  MAE=846.45  RMSE=1181.22  MAPE=6.65%  R²=0.770
+  Random Forest      TEST  MAE=714.73  RMSE=1033.56  MAPE=5.51%  R²=0.824
+  XGBoost            TEST  MAE=731.71  RMSE=1051.60  MAPE=5.65%  R²=0.818
+
+=== SDGE ===
+train=35,301  val=8,825  test=11,033  features=37
+test span: 2025-01-20 08:00:00 -> 2026-04-25 06:00:00
+  tuning Random Forest ...
+    best val MAE=119.18  params={'n_estimators': 500, 'max_depth': 20, 'min_samples_leaf': 1, 'max_features': 'sqrt'}
+  tuning XGBoost ...
+    best val MAE=113.33  n_estimators=169  params={'max_depth': 8, 'learning_rate': 0.08, 'min_child_weight': 3, 'subsample': 0.7, 'colsample_bytree': 0.9, 'reg_alpha': 1.0, 'reg_lambda': 2.0}
+  Linear Regression  TEST  MAE=164.84  RMSE=228.00  MAPE=7.38%  R²=0.651
+  Random Forest      TEST  MAE=142.75  RMSE=209.55  MAPE=6.34%  R²=0.705
+  XGBoost            TEST  MAE=144.45  RMSE=214.91  MAPE=6.41%  R²=0.690
+
+=== VEA ===
+train=35,301  val=8,825  test=11,033  features=37
+test span: 2025-01-20 08:00:00 -> 2026-04-25 06:00:00
+  tuning Random Forest ...
+    best val MAE=18.71  params={'n_estimators': 200, 'max_depth': None, 'min_samples_leaf': 2, 'max_features': 0.7}
+  tuning XGBoost ...
+    best val MAE=18.14  n_estimators=228  params={'max_depth': 5, 'learning_rate': 0.08, 'min_child_weight': 5, 'subsample': 0.8, 'colsample_bytree': 0.9, 'reg_alpha': 0.1, 'reg_lambda': 2.0}
+  Linear Regression  TEST  MAE=16.68  RMSE=26.58  MAPE=20.44%  R²=0.666
+  Random Forest      TEST  MAE=15.10  RMSE=24.86  MAPE=19.49%  R²=0.708
+  XGBoost            TEST  MAE=14.75  RMSE=24.69  MAPE=19.06%  R²=0.712
+
+======================================================================
+Tuned metrics summary (sorted by region, then MAE):
+region             model         MAE        RMSE  MAPE_pct         R2  mean_actual  MAE_pct_of_mean
+ caiso     Random Forest 1118.614748 1514.911543  4.296586   0.851304 25443.446177         4.396475
+ caiso           XGBoost 1132.635130 1541.431664  4.351355   0.846052 25443.446177         4.451579
+ caiso Linear Regression 1448.915726 1926.361488  5.609638   0.759563 25443.446177         5.694652
+   mwd Linear Regression   23.800266   30.972371 13.589885 -12.087082   172.410506        13.804417
+   mwd           XGBoost   61.767955   64.015212 35.822298 -54.906241   172.410506        35.826097
+   mwd     Random Forest   63.767662   65.591490 36.951980 -57.693352   172.410506        36.985949
+   pge           XGBoost  430.133348  575.153918  4.075447   0.883066 10920.537823         3.938756
+   pge     Random Forest  485.043727  662.479003  4.667989   0.844862 10920.537823         4.441574
+   pge Linear Regression  639.929269  834.866599  6.030092   0.753619 10920.537823         5.859870
+   sce     Random Forest  714.727939 1033.564450  5.509799   0.823910 12147.916676         5.883543
+   sce           XGBoost  731.707241 1051.600088  5.652798   0.817711 12147.916676         6.023315
+   sce Linear Regression  846.451109 1181.218591  6.645375   0.770005 12147.916676         6.967871
+  sdge     Random Forest  142.750608  209.547292  6.343150   0.704876  2248.383522         6.349033
+  sdge           XGBoost  144.449695  214.905417  6.405627   0.689590  2248.383522         6.424602
+  sdge Linear Regression  164.839698  228.000486  7.381929   0.650608  2248.383522         7.331476
+   vea           XGBoost   14.754437   24.693409 19.056342   0.711933    89.922449        16.407957
+   vea     Random Forest   15.099003   24.859604 19.488610   0.708042    89.922449        16.791139
+   vea Linear Regression   16.676137   26.577306 20.442379   0.666302    89.922449        18.545021
+
+Saved metrics to: /Users/adenzhao/src/cds/load-forecasting/caiso-forecasting/forecast_outputs_tuned/metrics_by_region_model.csv
+Saved best params to: /Users/adenzhao/src/cds/load-forecasting/caiso-forecasting/forecast_outputs_tuned/best_params.json
+All outputs written under: /Users/adenzhao/src/cds/load-forecasting/caiso-forecasting/forecast_outputs_tuned

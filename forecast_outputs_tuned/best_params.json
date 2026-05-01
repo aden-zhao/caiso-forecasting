@@ -1,0 +1,188 @@
+{
+  "caiso": {
+    "Linear Regression": {
+      "params": {},
+      "val_mae": null,
+      "fit_seconds": 0.0
+    },
+    "Random Forest": {
+      "params": {
+        "n_estimators": 400,
+        "max_depth": 25,
+        "min_samples_leaf": 1,
+        "max_features": "sqrt"
+      },
+      "val_mae": 1081.9164152964365,
+      "fit_seconds": 47.2
+    },
+    "XGBoost": {
+      "params": {
+        "max_depth": 6,
+        "learning_rate": 0.03,
+        "min_child_weight": 1,
+        "subsample": 0.7,
+        "colsample_bytree": 0.7,
+        "reg_alpha": 0.1,
+        "reg_lambda": 1.0,
+        "n_estimators": 781
+      },
+      "val_mae": 1058.6081023183933,
+      "fit_seconds": 20.1
+    }
+  },
+  "mwd": {
+    "Linear Regression": {
+      "params": {},
+      "val_mae": null,
+      "fit_seconds": 0.0
+    },
+    "Random Forest": {
+      "params": {
+        "n_estimators": 400,
+        "max_depth": 20,
+        "min_samples_leaf": 1,
+        "max_features": 0.5
+      },
+      "val_mae": 20.491611173947913,
+      "fit_seconds": 4.3
+    },
+    "XGBoost": {
+      "params": {
+        "max_depth": 5,
+        "learning_rate": 0.08,
+        "min_child_weight": 5,
+        "subsample": 0.8,
+        "colsample_bytree": 0.9,
+        "reg_alpha": 0.0,
+        "reg_lambda": 0.5,
+        "n_estimators": 127
+      },
+      "val_mae": 22.741500593976276,
+      "fit_seconds": 7.6
+    }
+  },
+  "pge": {
+    "Linear Regression": {
+      "params": {},
+      "val_mae": null,
+      "fit_seconds": 0.0
+    },
+    "Random Forest": {
+      "params": {
+        "n_estimators": 200,
+        "max_depth": 20,
+        "min_samples_leaf": 1,
+        "max_features": "sqrt"
+      },
+      "val_mae": 563.4498187076948,
+      "fit_seconds": 49.7
+    },
+    "XGBoost": {
+      "params": {
+        "max_depth": 4,
+        "learning_rate": 0.08,
+        "min_child_weight": 3,
+        "subsample": 0.7,
+        "colsample_bytree": 0.9,
+        "reg_alpha": 0.1,
+        "reg_lambda": 0.5,
+        "n_estimators": 1105
+      },
+      "val_mae": 509.97130147064445,
+      "fit_seconds": 37.8
+    }
+  },
+  "sce": {
+    "Linear Regression": {
+      "params": {},
+      "val_mae": null,
+      "fit_seconds": 0.0
+    },
+    "Random Forest": {
+      "params": {
+        "n_estimators": 300,
+        "max_depth": 25,
+        "min_samples_leaf": 2,
+        "max_features": "sqrt"
+      },
+      "val_mae": 682.5933996700512,
+      "fit_seconds": 60.5
+    },
+    "XGBoost": {
+      "params": {
+        "max_depth": 8,
+        "learning_rate": 0.08,
+        "min_child_weight": 1,
+        "subsample": 1.0,
+        "colsample_bytree": 0.7,
+        "reg_alpha": 1.0,
+        "reg_lambda": 2.0,
+        "n_estimators": 80
+      },
+      "val_mae": 677.7720294266147,
+      "fit_seconds": 7.2
+    }
+  },
+  "sdge": {
+    "Linear Regression": {
+      "params": {},
+      "val_mae": null,
+      "fit_seconds": 0.0
+    },
+    "Random Forest": {
+      "params": {
+        "n_estimators": 500,
+        "max_depth": 20,
+        "min_samples_leaf": 1,
+        "max_features": "sqrt"
+      },
+      "val_mae": 119.18459653139529,
+      "fit_seconds": 48.6
+    },
+    "XGBoost": {
+      "params": {
+        "max_depth": 8,
+        "learning_rate": 0.08,
+        "min_child_weight": 3,
+        "subsample": 0.7,
+        "colsample_bytree": 0.9,
+        "reg_alpha": 1.0,
+        "reg_lambda": 2.0,
+        "n_estimators": 169
+      },
+      "val_mae": 113.33316052233259,
+      "fit_seconds": 23.0
+    }
+  },
+  "vea": {
+    "Linear Regression": {
+      "params": {},
+      "val_mae": null,
+      "fit_seconds": 0.0
+    },
+    "Random Forest": {
+      "params": {
+        "n_estimators": 200,
+        "max_depth": null,
+        "min_samples_leaf": 2,
+        "max_features": 0.7
+      },
+      "val_mae": 18.713311849774524,
+      "fit_seconds": 60.5
+    },
+    "XGBoost": {
+      "params": {
+        "max_depth": 5,
+        "learning_rate": 0.08,
+        "min_child_weight": 5,
+        "subsample": 0.8,
+        "colsample_bytree": 0.9,
+        "reg_alpha": 0.1,
+        "reg_lambda": 2.0,
+        "n_estimators": 228
+      },
+      "val_mae": 18.13659710451433,
+      "fit_seconds": 15.8
+    }
+  }
+}

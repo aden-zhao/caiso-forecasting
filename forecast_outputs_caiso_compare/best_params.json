@@ -1,0 +1,30 @@
+{
+  "Linear Regression": {
+    "params": {},
+    "fit_seconds": 0.0
+  },
+  "Random Forest": {
+    "params": {
+      "n_estimators": 300,
+      "max_depth": 20,
+      "min_samples_leaf": 1,
+      "max_features": 0.7
+    },
+    "val_mae": 299.33568855552255,
+    "fit_seconds": 150.4
+  },
+  "XGBoost": {
+    "params": {
+      "max_depth": 7,
+      "learning_rate": 0.03,
+      "min_child_weight": 3,
+      "subsample": 0.7,
+      "colsample_bytree": 0.9,
+      "reg_alpha": 1.0,
+      "reg_lambda": 2.0,
+      "n_estimators": 1243
+    },
+    "val_mae": 274.5436270396836,
+    "fit_seconds": 74.5
+  }
+}
