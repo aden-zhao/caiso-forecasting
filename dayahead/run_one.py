@@ -7,9 +7,8 @@ import sys
 
 name, period = sys.argv[1:3]
 if name.startswith("mlp"):
-    import torch
-    torch.set_num_threads(3)
+    import torch  # noqa: F401  load torch before LightGBM, or it segfaults
 import exp  # noqa: E402
 
-exp.bt.LGB_PARAMS["num_threads"] = 3
+exp.bt.LGB_PARAMS["num_threads"] = 3     # three experiments run side by side
 exp.run(name, period)

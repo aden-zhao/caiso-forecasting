@@ -1,14 +1,17 @@
-"""Feature table: one row per target hour, using only information known at issue time."""
+"""Feature table: one row per target hour, using only information known at issue time.
+
+Load features come from days D-8 .. D-2 and the morning of D-1; weather features
+are forecasts as of the issue time (data.weather_at_issue).
+"""
 import holidays
 import numpy as np
 import pandas as pd
 
-from data import CITY_WEIGHT, LAST_KNOWN_HOUR, hourly, observed_weather, weather_at_issue, weighted
-from fetch_weather import CITIES
+from data import (CITIES, CITY_WEIGHT, LAST_KNOWN_HOUR, TZ, WEATHER_VARS, hourly,
+                  observed_weather, weather_at_issue, weighted)
 
-WX_VARS = ["temperature_2m", "dew_point_2m", "relative_humidity_2m",
-           "shortwave_radiation", "cloud_cover", "wind_speed_10m"]
 ONE = pd.Timedelta(days=1)
+TOTAL_WEIGHT = sum(CITY_WEIGHT.values())
 
 
 def day_hour(s: pd.Series, h: pd.DataFrame) -> pd.DataFrame:
@@ -18,32 +21,34 @@ def day_hour(s: pd.Series, h: pd.DataFrame) -> pd.DataFrame:
 
 
 def lookup(dh: pd.DataFrame, days: pd.Series, hours: pd.Series) -> np.ndarray:
+    """Read a day x hour table at the given (day, hour) pairs."""
     stacked = dh.stack()
     idx = pd.MultiIndex.from_arrays([days, hours])
     return stacked.reindex(idx).to_numpy()
 
 
-def load_features(h: pd.DataFrame, col: str = "load", prefix: str = "") -> pd.DataFrame:
-    L = day_hour(h[col], h)
+def load_features(h: pd.DataFrame) -> pd.DataFrame:
+    L = day_hour(h["load"], h)
     D, hr = h.day, h.hour
     f = pd.DataFrame(index=h.index)
     for k in range(2, 9):
-        f[f"{prefix}lag{k}"] = lookup(L, D - k * ONE, hr)
-    lag1 = lookup(L, D - ONE, hr)
-    f[prefix + "lag1"] = np.where(hr <= LAST_KNOWN_HOUR, lag1, np.nan)
+        f[f"lag{k}"] = lookup(L, D - k * ONE, hr)
+    # yesterday's same hour is only known for the morning hours
+    f["lag1"] = np.where(hr <= LAST_KNOWN_HOUR, lookup(L, D - ONE, hr), np.nan)
     # recent same-hour level: tracks the midday dip as rooftop solar grows
-    recent = f[[f"{prefix}lag{k}" for k in range(2, 9)]]
-    f[prefix + "sh_mean"] = recent.mean(axis=1)
-    f[prefix + "sh_median"] = recent.median(axis=1)
-    f[prefix + "sh_min"] = recent.min(axis=1)
+    recent = f[[f"lag{k}" for k in range(2, 9)]]
+    f["sh_mean"] = recent.mean(axis=1)
+    f["sh_median"] = recent.median(axis=1)
+    f["sh_min"] = recent.min(axis=1)
     morning = L.loc[:, :LAST_KNOWN_HOUR].mean(axis=1)
-    f[prefix + "d1_morning"] = morning.reindex(D - ONE).to_numpy()
-    f[prefix + "d1_last"] = L[LAST_KNOWN_HOUR].reindex(D - ONE).to_numpy()
-    f[prefix + "d2_morning"] = morning.reindex(D - 2 * ONE).to_numpy()
-    f[prefix + "d2_mean"] = L.mean(axis=1).reindex(D - 2 * ONE).to_numpy()
-    f[prefix + "d2_max"] = L.max(axis=1).reindex(D - 2 * ONE).to_numpy()
-    f[prefix + "d7_mean"] = L.mean(axis=1).reindex(D - 7 * ONE).to_numpy()
-    f[prefix + "level_change"] = f[prefix + "d1_morning"] / f[prefix + "d2_morning"]
+    daily_mean = L.mean(axis=1)
+    f["d1_morning"] = morning.reindex(D - ONE).to_numpy()      # the latest known load level
+    f["d1_last"] = L[LAST_KNOWN_HOUR].reindex(D - ONE).to_numpy()
+    f["d2_morning"] = morning.reindex(D - 2 * ONE).to_numpy()
+    f["d2_mean"] = daily_mean.reindex(D - 2 * ONE).to_numpy()
+    f["d2_max"] = L.max(axis=1).reindex(D - 2 * ONE).to_numpy()
+    f["d7_mean"] = daily_mean.reindex(D - 7 * ONE).to_numpy()
+    f["level_change"] = f["d1_morning"] / f["d2_morning"]
     return f
 
 
@@ -66,21 +71,27 @@ def clear_sky(index: pd.DatetimeIndex) -> pd.DataFrame:
 
 def weather_features(h: pd.DataFrame, wide: pd.DataFrame, prefix: str, per_city: bool,
                      daily: bool) -> pd.DataFrame:
+    """Hourly weather features from a wide `<var>|<city>` table.
+
+    per_city adds each city's temperature; daily adds temperature history and
+    daily summaries (used for the main weather source only).
+    """
     wide = wide.reindex(h.index)
     f = pd.DataFrame(index=h.index)
     if per_city:
         for c in wide.columns:
             if c.startswith("temperature_2m|"):
                 f[f"{prefix}t_{c.split('|')[1]}"] = wide[c]
-    for var in WX_VARS:
+    for var in WEATHER_VARS:
         if any(c.startswith(var + "|") for c in wide.columns):
             f[f"{prefix}w_{var}"] = weighted(wide, var)
     if f"{prefix}w_cloud_cover" in f:
         # cloud-attenuated clear-sky irradiance, weighted over cities: a rooftop-solar proxy
+        # (Kasten-Czeplak cloud attenuation)
         cs = clear_sky(h.index)
-        att = sum(CITY_WEIGHT[c] * cs[c] * (1 - 0.75 * (wide[f"cloud_cover|{c}"] / 100) ** 3.4)
-                  for c in cs.columns) / sum(CITY_WEIGHT.values())
-        f[f"{prefix}solar_proxy"] = att
+        f[f"{prefix}solar_proxy"] = sum(
+            CITY_WEIGHT[c] * cs[c] * (1 - 0.75 * (wide[f"cloud_cover|{c}"] / 100) ** 3.4)
+            for c in cs.columns) / TOTAL_WEIGHT
     if not daily:
         return f
     t = f[f"{prefix}w_temperature_2m"]
@@ -105,6 +116,7 @@ def weather_features(h: pd.DataFrame, wide: pd.DataFrame, prefix: str, per_city:
 
 
 def calendar_features(h: pd.DataFrame) -> pd.DataFrame:
+    """Calendar features. t_years (a linear trend) is opt-in: see backtest.feature_cols."""
     hol = holidays.country_holidays("US", subdiv="CA", years=range(2019, 2028))
     days = h.day.dt.date
     f = pd.DataFrame(index=h.index)
@@ -119,12 +131,14 @@ def calendar_features(h: pd.DataFrame) -> pd.DataFrame:
     doy = h.day.dt.dayofyear
     f["doy_sin"] = np.sin(2 * np.pi * doy / 365.25)
     f["doy_cos"] = np.cos(2 * np.pi * doy / 365.25)
-    f["dst"] = (h.index.tz_convert("America/Los_Angeles").strftime("%Z") == "PDT").astype(int)
-    f["clear_sky"] = (clear_sky(h.index) * pd.Series(CITY_WEIGHT)).sum(axis=1) / sum(CITY_WEIGHT.values())
+    f["dst"] = (h.index.tz_convert(TZ).strftime("%Z") == "PDT").astype(int)
+    f["clear_sky"] = (clear_sky(h.index) * pd.Series(CITY_WEIGHT)).sum(axis=1) / TOTAL_WEIGHT
+    f["t_years"] = (h.day - pd.Timestamp("2021-01-01")).dt.days / 365.25
     return f
 
 
 def forecast_weather(model: str, fallback: str | None = None, policy: str = "legit") -> pd.DataFrame:
+    """Forecasts from `model`, with missing temperatures filled from `fallback`."""
     wide = weather_at_issue(model, policy)
     if fallback:
         fb = weather_at_issue(fallback, policy)
@@ -137,12 +151,15 @@ def forecast_weather(model: str, fallback: str | None = None, policy: str = "leg
     return wide
 
 
-def build(main: str = "gfs_seamless", extra: tuple = ("jma_seamless",), policy: str = "legit") -> pd.DataFrame:
-    """Full table.
+def build(main: str = "gfs_seamless", extra: tuple = ("jma_seamless",),
+          policy: str = "legit") -> pd.DataFrame:
+    """The full table: one row per UTC hour.
 
-    main: weather source for the primary features ('obs' = observed weather, an
-      oracle for ablations). Gaps in GFS are filled from JMA.
-    extra: additional forecast models, added as prefixed hourly features.
+    main: weather source for the primary features. 'obs' uses observed weather,
+      an oracle for ablations only. Gaps in GFS temperatures are filled from JMA.
+    extra: more forecast models, added as prefixed CAISO-wide features (JMA's
+      cloud cover is the only cloud forecast that goes back to 2020).
+    policy: see data.weather_at_issue.
     """
     h = hourly()
     if main == "obs":
@@ -155,4 +172,4 @@ def build(main: str = "gfs_seamless", extra: tuple = ("jma_seamless",), policy: 
         parts.append(weather_features(h, weather_at_issue(m, policy), m.split("_")[0] + "_",
                                       per_city=False, daily=False))
     f = pd.concat(parts, axis=1)
-    return f.loc[:, ~f.columns.duplicated()]
+    return f.loc[:, ~f.columns.duplicated()]     # 'hour' is in both h and the calendar

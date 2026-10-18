@@ -10,7 +10,6 @@ indexed by UTC interval start).
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
-from io import StringIO
 from pathlib import Path
 
 import pandas as pd

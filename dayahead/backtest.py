@@ -17,7 +17,10 @@ import pandas as pd
 PERIODS = {"dev": ("2024-01-01", "2025-01-01"), "test": ("2025-01-01", "2026-10-01")}
 TRAIN_START = "2021-03-15"   # GFS archived forecasts start 2021-03 (JMA fills earlier temps)
 
-META = {"load", "day", "issue_utc", "caiso_dam", "caiso_2da", "batteries", "solar"}
+# Columns that are not model inputs: targets, keys, and things only known after the fact.
+# CAISO's forecasts are opt-in inputs (see exp.py).
+NOT_FEATURES = {"load", "load_oasis", "day", "issue_utc", "caiso_dam", "caiso_2da",
+                "batteries", "solar", "t_years"}
 
 
 def metrics(y: np.ndarray, p: np.ndarray) -> dict:
@@ -27,6 +30,7 @@ def metrics(y: np.ndarray, p: np.ndarray) -> dict:
 
 
 def eval_mask(df: pd.DataFrame, start: str, end: str) -> pd.Series:
+    """Hours in [start, end) where both the actual load and CAISO's forecast exist."""
     return (df.day >= start) & (df.day < end) & df.load.notna() & df.caiso_dam.notna()
 
 
@@ -57,12 +61,14 @@ def score(df: pd.DataFrame, preds: dict[str, pd.Series], period: str = "dev") ->
 # ---- methods -------------------------------------------------------------
 
 def column(name: str) -> Callable:
+    """A 'model' that just reads a column, e.g. CAISO's forecast or a naive lag."""
     return lambda train, test: test[name].to_numpy()
 
 
-def feature_cols(df: pd.DataFrame, drop: set = frozenset()) -> list[str]:
-    return [c for c in df.columns if c not in META and c not in drop and not c.startswith("load_")
-            and c != "t_years" and df[c].dtype != object]
+def feature_cols(df: pd.DataFrame) -> list[str]:
+    """Default model inputs. The t_years trend is left out because trees can't
+    extrapolate it; experiments add it explicitly."""
+    return [c for c in df.columns if c not in NOT_FEATURES]
 
 
 LGB_PARAMS = dict(objective="l2", learning_rate=0.03, num_leaves=63, min_data_in_leaf=50,

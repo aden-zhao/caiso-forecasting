@@ -26,7 +26,7 @@ So the target here is CAISO's Today's Outlook demand, which is measured the same
 ![Test-period error vs CAISO](docs/figures/headline.svg)
 
 - **A, our forecast alone, ties CAISO** (498 vs 496 MW mean error).
-- **B, our forecast averaged with CAISO's (plus a model that corrects CAISO's), is 14% better** (426 MW). A market participant can do this: CAISO's forecast is public at ~9:30, before bids close at 10:00. B beats CAISO on 69% of days and at each day's peak hour.
+- **B, our forecast averaged with CAISO's (plus a model that corrects CAISO's), is 14% better** (426 MW). A market participant can do this: CAISO's forecast is public at ~9:30, before bids close at 10:00. B beats CAISO on 70% of days and at each day's peak hour.
 - **Weather wasn't the bottleneck.** Given the weather that actually happened, the model improved only from 630 to 621 MW. The gains came from modelling: cloud forecasts, recent-temperature features, the whole-day MLP, and averaging.
 - **Midday is the hard part.** Rooftop solar keeps growing: on spring weekdays, noon demand fell from 0.79× to 0.66× of 8pm demand between 2020 and 2026. Errors peak there for everyone:
 

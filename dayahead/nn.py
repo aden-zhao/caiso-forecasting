@@ -13,9 +13,12 @@ import pandas as pd
 import torch
 from torch import nn
 
+from data import LAST_KNOWN_HOUR
 from features import day_hour
 
-ONE = pd.Timedelta(days=1)
+# Results depend on the CPU thread count (it changes floating-point summation order),
+# so it is fixed. With it fixed, runs are bit-for-bit reproducible.
+THREADS = 3
 HOURLY = ["w_temperature_2m", "t_los_angeles", "t_riverside", "t_santa_ana", "t_san_diego",
           "t_san_jose", "t_oakland", "t_sacramento", "t_fresno", "t_bakersfield", "t_palm_springs",
           "jma_w_cloud_cover", "jma_w_dew_point_2m", "jma_solar_proxy", "clear_sky"]
@@ -24,19 +27,19 @@ DAILY = ["dow", "holiday", "holiday_adj", "lag2_offday", "lag7_holiday", "doy_si
 
 def day_matrix(df: pd.DataFrame, col: str) -> pd.DataFrame:
     m = day_hour(df[col], df).reindex(columns=range(24))
-    return m.interpolate(axis=1, limit_direction="both")   # spring-forward gap
+    return m.interpolate(axis=1, limit_direction="both")   # fills the spring-forward gap
 
 
 def day_table(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
     """X (days x features), Y (days x 24, scaled), scale (days)."""
     L = day_matrix(df, "load")
     days = L.index
-    level = L.loc[:, :7].mean(axis=1)
-    scale = level.shift(1, freq="D").reindex(days)          # D-1 morning
+    morning = L.loc[:, :LAST_KNOWN_HOUR]
+    scale = morning.mean(axis=1).shift(1, freq="D").reindex(days)     # D-1 morning level
     parts = []
     for k in range(2, 9):
         parts.append(L.shift(k, freq="D").reindex(days).div(scale, axis=0).add_prefix(f"L{k}_"))
-    parts.append(L.loc[:, :7].shift(1, freq="D").reindex(days).div(scale, axis=0).add_prefix("L1_"))
+    parts.append(morning.shift(1, freq="D").reindex(days).div(scale, axis=0).add_prefix("L1_"))
     for c in HOURLY:
         W = day_matrix(df, c)
         parts.append(W.add_prefix(c + "_"))
@@ -63,6 +66,7 @@ class MLP(nn.Module):
 
 
 def fit_one(X, Y, seed, epochs=300, lr=1e-3, wd=1e-4, width=256, dropout=0.1):
+    """Train one MLP with AdamW and a cosine schedule, batch size 64, L1 loss."""
     torch.manual_seed(seed)
     model = MLP(X.shape[1], width, dropout)
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=wd)
@@ -84,13 +88,18 @@ def fit_one(X, Y, seed, epochs=300, lr=1e-3, wd=1e-4, width=256, dropout=0.1):
 
 
 def mlp(df: pd.DataFrame, seeds: int = 5, **kw):
-    """df is the full table; day_table only reads inputs known at each day's issue,
-    and the targets of test days are never used for fitting."""
+    """fit_predict for backtest.rolling: an ensemble of `seeds` MLPs (kw go to fit_one).
+
+    df is the full table. day_table only reads inputs known at each day's issue,
+    and test days' targets are never used for fitting.
+    """
+    torch.set_num_threads(THREADS)
     X, Y, scale = day_table(df)
 
     def fit_predict(train, test):
         tr = X.index.isin(np.unique(train.day)) & X.notna().all(axis=1) & Y.notna().all(axis=1)
         te = X.index.isin(np.unique(test.day))
+        # standardise inputs and centre targets with training-day statistics
         mu, sd = X[tr].mean(), X[tr].std().replace(0, 1)
         Xs = ((X - mu) / sd).fillna(0).to_numpy(dtype=np.float32)
         ymu = Y[tr].mean().to_numpy()
@@ -98,6 +107,7 @@ def mlp(df: pd.DataFrame, seeds: int = 5, **kw):
         with torch.no_grad():
             preds = np.mean([m(torch.tensor(Xs[te])).numpy() for m in models], axis=0)
         P = pd.DataFrame(preds + ymu, index=X.index[te], columns=range(24)).mul(scale[te], axis=0)
+        # back from day x hour to the test rows (both fall-back hours get the same value)
         return P.stack().reindex(pd.MultiIndex.from_arrays([test.day, test.hour])).to_numpy()
 
     return fit_predict

@@ -1,8 +1,9 @@
 """Download CAISO load from OASIS: actuals and CAISO's own forecasts.
 
+    python fetch_oasis.py ACTUAL|DAM|2DA [first] [last]
+
 Writes data/oasis_<run>.parquet with columns
     time_utc (interval start), tac, opr_dt, opr_hr, mw
-for run in ACTUAL, DAM (day-ahead), 2DA, 7DA.
 """
 import io
 import re
@@ -19,7 +20,7 @@ TACS = ["CA ISO-TAC", "PGE-TAC", "SCE-TAC", "SDGE-TAC", "VEA-TAC", "MWD-TAC"]
 OUT = Path(__file__).parent / "data"
 
 
-def fetch_month(run: str, start: pd.Timestamp, end: pd.Timestamp) -> pd.DataFrame:
+def fetch_chunk(run: str, start: pd.Timestamp, end: pd.Timestamp) -> pd.DataFrame:
     params = {
         "queryname": "SLD_FCST",
         "market_run_id": run,
@@ -56,7 +57,7 @@ def main(run: str, first: str = "2020-01-01", last: str = "2026-10-16") -> None:
         path = raw / f"{run}_{s:%Y%m%d}.parquet"
         if not path.exists():
             e = min(s + pd.Timedelta(days=20), pd.Timestamp(last) + pd.Timedelta(hours=8))
-            df = fetch_month(run, s, e)
+            df = fetch_chunk(run, s, e)
             df[df.TAC_AREA_NAME.isin(TACS)].to_parquet(path)
             print(run, s.date(), flush=True)
             time.sleep(6)  # OASIS rate limit is roughly one request per 5 s

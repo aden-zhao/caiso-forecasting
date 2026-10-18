@@ -12,8 +12,8 @@ import sys
 import numpy as np
 import pandas as pd
 
-import exp
 import backtest as bt
+import exp
 
 A_PARTS = ["mlp_reg_e150", "a_from2020", "a_perhour"]
 B_EXTRA = "ondam_diff"
@@ -31,8 +31,7 @@ def bootstrap_gap(y, p, ref, days, n=2000, seed=0):
 
 def main(period: str) -> None:
     df = exp.table()
-    exp.main(period, *A_PARTS, B_EXTRA)   # computes any missing runs, one process each
-    P = {n: exp.run(n, period) for n in A_PARTS + [B_EXTRA]}
+    P = exp.run_all(period, A_PARTS + [B_EXTRA])
     A = sum(P[n] for n in A_PARTS) / len(A_PARTS)
     c = df.caiso_dam.reindex(A.index)
     B = (c + A + P[B_EXTRA]) / 3
@@ -44,7 +43,7 @@ def main(period: str) -> None:
         lo, hi = bootstrap_gap(y, p, c, days)
         print(f"{name} - CAISO MAE: {(p - y).abs().mean() - (c - y).abs().mean():+.1f} MW "
               f"(95% CI {lo:+.1f} .. {hi:+.1f})")
-    # by year, and on each day's peak hour (what matters most for reliability and prices)
+    # by year, and at each day's peak hour (what matters most for reliability and prices)
     e = pd.DataFrame({k: (v - y).abs() for k, v in [("CAISO", c), ("A", A), ("B", B)]})
     print(e.groupby(days.dt.year).mean().round(0).to_string())
     peak = y.groupby(days).idxmax()

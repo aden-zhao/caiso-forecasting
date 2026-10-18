@@ -4,6 +4,8 @@ Forecasts come from Open-Meteo's Previous Runs API: `<var>_previous_dayN` is wha
 the model predicted N days before the valid time. That is what a forecaster
 actually had, unlike observed weather.
 
+    python fetch_weather.py <model>|obs <start> <end>    # e.g. gfs_seamless 2021-03-01 2026-10-16
+
 Writes data/wx_fcst_<model>.parquet and data/wx_obs.parquet, long format:
     time_utc, city, variable, value
 """
@@ -14,23 +16,9 @@ from pathlib import Path
 import pandas as pd
 import requests
 
-OUT = Path(__file__).parent / "data"
+from data import CITIES, WEATHER_VARS as VARS
 
-# Load centers inside the CAISO footprint, with the TAC that serves them.
-CITIES = {
-    "los_angeles":  (34.05, -118.24, "SCE-TAC"),
-    "riverside":    (33.95, -117.40, "SCE-TAC"),
-    "santa_ana":    (33.75, -117.87, "SCE-TAC"),
-    "palm_springs": (33.83, -116.55, "SCE-TAC"),
-    "san_diego":    (32.72, -117.16, "SDGE-TAC"),
-    "san_jose":     (37.34, -121.89, "PGE-TAC"),
-    "oakland":      (37.80, -122.27, "PGE-TAC"),
-    "sacramento":   (38.58, -121.49, "PGE-TAC"),
-    "fresno":       (36.74, -119.79, "PGE-TAC"),
-    "bakersfield":  (35.37, -119.02, "PGE-TAC"),
-}
-VARS = ["temperature_2m", "dew_point_2m", "relative_humidity_2m",
-        "shortwave_radiation", "cloud_cover", "wind_speed_10m"]
+OUT = Path(__file__).parent / "data"
 
 
 def get(url: str, params: dict) -> dict:

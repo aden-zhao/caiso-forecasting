@@ -2,7 +2,6 @@ pandas
 pyarrow
 numpy
 requests
-scikit-learn
 lightgbm
 matplotlib
 holidays
