@@ -10,6 +10,7 @@ import numpy as np
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_absolute_error
+from pathlib import Path
 
 # Config (match linear_regression.py)
 LAG_HOURS = 168
@@ -17,7 +18,8 @@ TEST_WINDOW_HOURS = 24
 MIN_TRAIN_SIZE = 336
 
 # Load data
-df = pd.read_csv("unified_load_data.csv")
+ROOT = Path(__file__).resolve().parents[1]   # hourahead/
+df = pd.read_csv(ROOT / "data" / "unified_load_data.csv")
 df["timestamp"] = pd.to_datetime(df["timestamp"])
 df = df.sort_values("timestamp").reset_index(drop=True)
 df["load_lag_168"] = df["load_mw"].shift(LAG_HOURS)

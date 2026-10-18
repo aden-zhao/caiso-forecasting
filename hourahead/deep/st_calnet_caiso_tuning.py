@@ -45,7 +45,8 @@ from torch.utils.data import DataLoader, Dataset
 # =========================
 # Config
 # =========================
-DEFAULT_CSV_PATH = "caiso_dataset_20200101_to_20241231.csv"
+ROOT = Path(__file__).resolve().parents[1]   # hourahead/
+DEFAULT_CSV_PATH = str(ROOT / "data" / "caiso_dataset_20200101_to_20241231.csv")
 DEFAULT_REGION = "caiso"
 DEFAULT_TIMESTAMP_COL = "time_utc"
 DEFAULT_TARGET_COL = "load_mw"
@@ -72,7 +73,7 @@ DEFAULT_DROPOUT = 0.10
 DEFAULT_NUM_WORKERS = 0
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-DEFAULT_OUT_DIR = "runs/st_calnet"
+DEFAULT_OUT_DIR = str(ROOT / "outputs" / "st_calnet_runs")
 MODEL_FILENAME = "st_calnet_caiso.pt"
 PREDICTIONS_FILENAME = "st_calnet_test_predictions.csv"
 ATTENTION_FILENAME = "st_calnet_test_attention.csv"

@@ -23,6 +23,7 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import mean_absolute_error
 
 from xgboost import XGBRegressor
+from pathlib import Path
 
 
 # ============================
@@ -38,7 +39,8 @@ MIN_TRAIN_SIZE = 336
 # Load dataset
 # ============================
 
-df = pd.read_csv("unified_load_data.csv")
+ROOT = Path(__file__).resolve().parents[1]   # hourahead/
+df = pd.read_csv(ROOT / "data" / "unified_load_data.csv")
 df["timestamp"] = pd.to_datetime(df["timestamp"])
 df = df.sort_values("timestamp").reset_index(drop=True)
 

@@ -12,7 +12,7 @@ Same dataset / features as `aden_multi_region_forecast.py`, but:
   * Linear Regression has no hyperparameters to tune; included as the reference
     baseline for comparability with the untuned run.
 
-Outputs (forecast_outputs_tuned/):
+Outputs (outputs/multi_region_tuned/):
     metrics_by_region_model.csv
     best_params.json
     predictions_<region>.csv
@@ -39,8 +39,9 @@ from xgboost import XGBRegressor
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
-DATA_PATH = Path("filtered.csv")
-OUT_DIR = Path("forecast_outputs_tuned")
+ROOT = Path(__file__).resolve().parents[1]   # hourahead/
+DATA_PATH = ROOT / "data" / "filtered.csv"   # not in the repo
+OUT_DIR = ROOT / "outputs" / "multi_region_tuned"
 OUT_DIR.mkdir(exist_ok=True)
 
 TARGET_COL = "load_mw"

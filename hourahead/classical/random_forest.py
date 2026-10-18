@@ -8,9 +8,11 @@ Requires: pip install scikit-learn
 import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
+from pathlib import Path
 
 # Config
-CSV_PATH = "caiso_dataset_20200101_to_20241231.csv"
+ROOT = Path(__file__).resolve().parents[1]   # hourahead/
+CSV_PATH = ROOT / "data" / "caiso_dataset_20200101_to_20241231.csv"
 REGION = "caiso"
 TIMESTAMP_COL = "time_utc"
 TARGET_COL = "load_mw"

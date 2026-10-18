@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import random
+from pathlib import Path
 N_RANDOM_FOLDS = 50
 RANDOM_SEED = 42
 
@@ -25,7 +26,8 @@ except ModuleNotFoundError as exc:
     ) from exc
 
 # Config
-DATA_PATH = "caiso_dataset_20200101_to_20241231.csv"
+ROOT = Path(__file__).resolve().parents[1]   # hourahead/
+DATA_PATH = ROOT / "data" / "caiso_dataset_20200101_to_20241231.csv"
 LAG_HOURS = 168
 TEST_WINDOW_HOURS = 168
 MIN_TRAIN_SIZE = 336  # 14 days minimum for fitting model

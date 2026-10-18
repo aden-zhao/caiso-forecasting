@@ -13,9 +13,11 @@ Requires: pip install scikit-learn
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LinearRegression
+from pathlib import Path
 
 # Config
-DATA_PATH = "caiso_dataset_20200101_to_20241231.csv"
+ROOT = Path(__file__).resolve().parents[1]   # hourahead/
+DATA_PATH = ROOT / "data" / "caiso_dataset_20200101_to_20241231.csv"
 LAG_HOURS = 168
 TEST_WINDOW_HOURS = 24
 MIN_TRAIN_SIZE = 336  # 14 days minimum for fitting regression

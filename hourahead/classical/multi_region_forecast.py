@@ -7,15 +7,15 @@ one-hots + load_previous_week), evaluates on a chronological hold-out, and
 emits a metrics table + visualizations.
 
 Outputs (written next to this script):
-    forecast_outputs/metrics_by_region_model.csv
-    forecast_outputs/predictions_<region>.csv
-    forecast_outputs/mae_by_region.png
-    forecast_outputs/mape_by_region.png
-    forecast_outputs/rmse_by_region.png
-    forecast_outputs/r2_by_region.png
-    forecast_outputs/timeseries_<region>.png
-    forecast_outputs/scatter_<region>.png
-    forecast_outputs/residuals_<region>.png
+    outputs/multi_region/metrics_by_region_model.csv
+    outputs/multi_region/predictions_<region>.csv
+    outputs/multi_region/mae_by_region.png
+    outputs/multi_region/mape_by_region.png
+    outputs/multi_region/rmse_by_region.png
+    outputs/multi_region/r2_by_region.png
+    outputs/multi_region/timeseries_<region>.png
+    outputs/multi_region/scatter_<region>.png
+    outputs/multi_region/residuals_<region>.png
 
 Requires: pandas, numpy, scikit-learn, xgboost, matplotlib
 """
@@ -35,8 +35,9 @@ from xgboost import XGBRegressor
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
-DATA_PATH = Path("filtered.csv")
-OUT_DIR = Path("forecast_outputs")
+ROOT = Path(__file__).resolve().parents[1]   # hourahead/
+DATA_PATH = ROOT / "data" / "filtered.csv"   # not in the repo
+OUT_DIR = ROOT / "outputs" / "multi_region"
 OUT_DIR.mkdir(exist_ok=True)
 
 TARGET_COL = "load_mw"

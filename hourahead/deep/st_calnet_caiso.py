@@ -45,7 +45,9 @@ from torch.utils.data import DataLoader, Dataset
 # =========================
 # Config
 # =========================
-CSV_PATH = "caiso_dataset_20200101_to_20241231.csv"
+ROOT = Path(__file__).resolve().parents[1]   # hourahead/
+CSV_PATH = ROOT / "data" / "caiso_dataset_20200101_to_20241231.csv"
+OUT_DIR = ROOT / "outputs" / "st_calnet"
 REGION = "caiso"
 TIMESTAMP_COL = "time_utc"
 TARGET_COL = "load_mw"
@@ -71,7 +73,7 @@ DROPOUT = 0.15          # was 0.10; slightly more regularization for larger mode
 NUM_WORKERS = 0
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-MODEL_OUT = "st_calnet_caiso.pt"
+MODEL_OUT = OUT_DIR / "st_calnet_caiso.pt"
 
 
 # =========================
@@ -402,7 +404,7 @@ def save_predictions_csv(
     timestamps: np.ndarray,
     y_true: np.ndarray,
     y_pred: np.ndarray,
-    path: str = "st_calnet_test_predictions.csv",
+    path: Path = OUT_DIR / "st_calnet_test_predictions.csv",
 ) -> None:
     out = pd.DataFrame(
         {
@@ -415,7 +417,7 @@ def save_predictions_csv(
     out.to_csv(path, index=False)
 
 
-def save_attention_csv(attn: np.ndarray, seq_len: int, path: str = "st_calnet_test_attention.csv") -> None:
+def save_attention_csv(attn: np.ndarray, seq_len: int, path: Path = OUT_DIR / "st_calnet_test_attention.csv") -> None:
     cols = [f"t_minus_{seq_len - i}" for i in range(seq_len)]
     pd.DataFrame(attn, columns=cols).to_csv(path, index=False)
 
@@ -431,7 +433,7 @@ def plot_loss_curves(train_losses: List[float], val_losses: List[float]) -> None
     ax.legend()
     ax.grid(True)
     plt.tight_layout()
-    fig.savefig("st_calnet_loss_curve.png", dpi=150)
+    fig.savefig(OUT_DIR / "st_calnet_loss_curve.png", dpi=150)
     plt.close(fig)
 
 
@@ -445,7 +447,7 @@ def plot_predictions(timestamps: np.ndarray, y_true: np.ndarray, y_pred: np.ndar
     ax.legend()
     ax.grid(True)
     plt.tight_layout()
-    fig.savefig("st_calnet_test_predictions.png", dpi=150)
+    fig.savefig(OUT_DIR / "st_calnet_test_predictions.png", dpi=150)
     plt.close(fig)
 
 
@@ -460,7 +462,7 @@ def plot_prediction_scatter(y_true: np.ndarray, y_pred: np.ndarray) -> None:
     ax.set_title("ST-CALNet Prediction Scatter")
     ax.grid(True)
     plt.tight_layout()
-    fig.savefig("st_calnet_scatter.png", dpi=150)
+    fig.savefig(OUT_DIR / "st_calnet_scatter.png", dpi=150)
     plt.close(fig)
 
 
@@ -474,7 +476,7 @@ def plot_attention(avg_attention: np.ndarray, seq_len: int) -> None:
     plt.xticks(rotation=45)
     ax.grid(True, axis="y")
     plt.tight_layout()
-    fig.savefig("st_calnet_attention.png", dpi=150)
+    fig.savefig(OUT_DIR / "st_calnet_attention.png", dpi=150)
     plt.close(fig)
     
     
@@ -482,6 +484,7 @@ def main() -> None:
     set_seed(RANDOM_SEED)
 
     print(f"Using device: {DEVICE}")
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
     print(f"Loading dataset: {CSV_PATH}")
     df, feature_cols = load_and_prepare_dataframe(CSV_PATH, REGION)
 
@@ -593,8 +596,8 @@ def main() -> None:
     print_metrics("Validation metrics (MW scale)", val_metrics)
     print_metrics("Test metrics (MW scale)", test_metrics)
 
-    save_predictions_csv(test_ts, test_true, test_pred, path="st_calnet_test_predictions.csv")
-    save_attention_csv(test_attn, seq_len=SEQ_LEN, path="st_calnet_test_attention.csv")
+    save_predictions_csv(test_ts, test_true, test_pred)
+    save_attention_csv(test_attn, seq_len=SEQ_LEN)
 
     avg_attention = test_attn.mean(axis=0)
     
@@ -627,7 +630,7 @@ def main() -> None:
         "r2":                round(test_metrics["R2"],   3),
         "has_result":        True,
     }
-    comp_path = Path("model_comparison_summary.csv")
+    comp_path = ROOT / "outputs" / "model_comparison_summary.csv"
     if comp_path.exists():
         comp_df = pd.read_csv(comp_path)
         comp_df = comp_df[comp_df["model"] != "ST-CALNet"]
@@ -637,7 +640,7 @@ def main() -> None:
     comp_df.to_csv(comp_path, index=False)
 
     print("Done.")
-    print("Artifacts written:")
+    print(f"Artifacts written to {OUT_DIR}:")
     print("  -", MODEL_OUT)
     print("  - st_calnet_test_predictions.csv")
     print("  - st_calnet_test_attention.csv")

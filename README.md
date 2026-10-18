@@ -59,4 +59,4 @@ No GPU needed. Each experiment trains in minutes on a laptop.
 | `dayahead/final.py` | Frozen final configs and the comparison with CAISO |
 | `dayahead/fetch_*.py` | Downloaders for OASIS, Today's Outlook and Open-Meteo |
 
-The top-level scripts are the earlier class project: 1-hour-ahead models (OLS, random forest, XGBoost, BiLSTM, ST-CALNet).
+[`hourahead/`](hourahead) is the class project this grew out of: 1-hour-ahead models (OLS, random forest, XGBoost, BiLSTM, ST-CALNet).

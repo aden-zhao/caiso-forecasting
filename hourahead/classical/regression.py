@@ -8,6 +8,7 @@ import numpy as np
 from sklearn.linear_model import Ridge, Lasso
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
+from pathlib import Path
 
 # Config
 LAG_HOURS = 168
@@ -16,7 +17,8 @@ MIN_TRAIN_SIZE = 336
 ALPHA = 1.0  # Regularization strength
 
 # Load data
-df = pd.read_csv("caiso_dataset_20200101_to_20241231.csv")
+ROOT = Path(__file__).resolve().parents[1]   # hourahead/
+df = pd.read_csv(ROOT / "data" / "caiso_dataset_20200101_to_20241231.csv")
 df["time_utc"] = pd.to_datetime(df["time_utc"])
 df = df.sort_values("time_utc").reset_index(drop=True)
 

@@ -15,7 +15,7 @@ Mirrors st_calnet_caiso.py:
   * Tuning:   small random search on the val slice, refit on train+val,
               evaluate ONCE on the held-out test slice.
 
-Outputs (forecast_outputs_caiso_compare/):
+Outputs (outputs/caiso_compare/):
   - metrics_caiso_compare.csv
   - predictions_caiso.csv
   - timeseries_caiso.png
@@ -39,7 +39,8 @@ from xgboost import XGBRegressor
 # ---------------------------------------------------------------------------
 # Config — locked to ST-CALNet / LSTM split
 # ---------------------------------------------------------------------------
-CSV_PATH = Path("caiso_dataset_20200101_to_20241231.csv")
+ROOT = Path(__file__).resolve().parents[1]   # hourahead/
+CSV_PATH = ROOT / "data" / "caiso_dataset_20200101_to_20241231.csv"
 REGION = "caiso"
 TARGET_COL = "load_mw"
 TIMESTAMP_COL = "time_utc"
@@ -51,7 +52,7 @@ LAG_HOURS = list(range(1, 25)) + [168]
 N_RANDOM_SEARCH = 12
 RANDOM_SEED = 42
 
-OUT_DIR = Path("forecast_outputs_caiso_compare")
+OUT_DIR = ROOT / "outputs" / "caiso_compare"
 OUT_DIR.mkdir(exist_ok=True)
 
 

@@ -6,14 +6,14 @@ Ablation relative to ST-CALNet: no Conv1d feature extractor, no self-attention.
 Adds bidirectionality and a longer context window (1 week vs 1 day) to test
 whether weekly patterns alone can rival the full ST-CALNet architecture.
 
-Outputs (all saved to lstm_caiso_outputs/):
+Outputs (all saved to outputs/lstm/):
   lstm_caiso.pt                   — model checkpoint + config
   lstm_caiso_test_predictions.csv — per-hour test predictions
   lstm_caiso_training_history.csv — epoch-by-epoch train/val loss
   loss_curve.png                  — training curves
   test_predictions.png            — actual vs predicted (first 14 days of test set)
   scatter.png                     — prediction scatter plot
-model_comparison_summary.csv is also updated (project root).
+outputs/model_comparison_summary.csv is also updated.
 """
 from __future__ import annotations
 
@@ -38,7 +38,8 @@ from torch.utils.data import DataLoader, Dataset
 # =========================
 # Config
 # =========================
-CSV_PATH = "caiso_dataset_20200101_to_20241231.csv"
+ROOT = Path(__file__).resolve().parents[1]   # hourahead/
+CSV_PATH = ROOT / "data" / "caiso_dataset_20200101_to_20241231.csv"
 REGION = "caiso"
 TIMESTAMP_COL = "time_utc"
 TARGET_COL = "load_mw"
@@ -72,7 +73,7 @@ elif torch.cuda.is_available():
 else:
     DEVICE = "cpu"
 
-OUT_DIR = Path("lstm_caiso_outputs")
+OUT_DIR = ROOT / "outputs" / "lstm"
 MODEL_OUT = OUT_DIR / "lstm_caiso.pt"
 
 
@@ -386,7 +387,7 @@ def plot_scatter(y_true: np.ndarray, y_pred: np.ndarray) -> None:
 # =========================
 def main() -> None:
     set_seed(RANDOM_SEED)
-    OUT_DIR.mkdir(exist_ok=True)
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
 
     print(f"Device: {DEVICE}")
     print(f"Loading dataset: {CSV_PATH}\n")
@@ -551,7 +552,7 @@ def main() -> None:
         "r2":                round(test_metrics["R2"],   3),
         "has_result":        True,
     }
-    comp_path = Path("model_comparison_summary.csv")
+    comp_path = ROOT / "outputs" / "model_comparison_summary.csv"
     if comp_path.exists():
         comp_df = pd.read_csv(comp_path)
         comp_df = comp_df[comp_df["model"] != row["model"]]

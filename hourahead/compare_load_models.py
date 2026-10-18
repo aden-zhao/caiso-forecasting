@@ -68,7 +68,7 @@ METRICS = {
     },
 }
 
-OUTPUT_DIR = Path(".")
+OUTPUT_DIR = Path(__file__).resolve().parent / "outputs"
 BAR_CHART_PATH = OUTPUT_DIR / "model_comparison_mae.png"
 PCT_CHART_PATH = OUTPUT_DIR / "model_comparison_mae_pct.png"
 PRED_CHART_PATH = OUTPUT_DIR / "model_comparison_predictions.png"
