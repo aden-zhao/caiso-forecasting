@@ -1,4 +1,6 @@
-# Day-ahead CAISO load: can we beat CAISO?
+# caiso-forecasting
+
+Can we beat CAISO's official day-ahead load forecast? The code is in `dayahead/`. The top level holds the earlier class project: 1-hour-ahead models (OLS, random forest, XGBoost, BiLSTM, ST-CALNet).
 
 **Setup.** At 09:00 PT on D-1, forecast every hour of D, the same timing as CAISO's day-ahead forecast. Only data available by 09:00 is used:
 - load through 08:00
@@ -28,6 +30,7 @@ Models retrain monthly. Choices were made on 2024 (dev). 2025-01 → 2026-09 (te
 
 **Run.**
 ```
+cd dayahead
 pip install -r requirements.txt
 python fetch_oasis.py ACTUAL; python fetch_oasis.py DAM; python fetch_oasis.py 2DA
 python fetch_outlook.py
