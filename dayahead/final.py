@@ -31,6 +31,7 @@ def bootstrap_gap(y, p, ref, days, n=2000, seed=0):
 
 def main(period: str) -> None:
     df = exp.table()
+    exp.main(period, *A_PARTS, B_EXTRA)   # computes any missing runs, one process each
     P = {n: exp.run(n, period) for n in A_PARTS + [B_EXTRA]}
     A = sum(P[n] for n in A_PARTS) / len(A_PARTS)
     c = df.caiso_dam.reindex(A.index)

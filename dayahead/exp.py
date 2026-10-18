@@ -2,14 +2,13 @@
 
     python exp.py dev base sh_ratio ...     # run (or load cached) and compare with CAISO
 """
-import multiprocessing
+import subprocess
 import sys
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from pathlib import Path
 
 import pandas as pd
-import torch  # noqa: F401  must load before lightgbm, or torch segfaults (two OpenMP runtimes)
 
 import backtest as bt
 import features
@@ -111,18 +110,14 @@ def run(name: str, period: str) -> pd.Series:
     return pred
 
 
-def _run(job):
-    import lightgbm  # noqa: F401  (each worker sets its own thread count below)
-    bt.LGB_PARAMS["num_threads"] = 3
-    import torch
-    torch.set_num_threads(3)
-    return run(*job)
-
-
 def main(period: str, *names: str) -> None:
-    # spawn: forked workers crash once torch is loaded on macOS
-    with ProcessPoolExecutor(3, mp_context=multiprocessing.get_context("spawn")) as pool:
-        preds = dict(zip(names, pool.map(_run, [(n, period) for n in names])))
+    # one process per experiment (see run_one.py), three at a time
+    todo = [n for n in names if not (RES / f"{period}_{n}.parquet").exists()]
+    with ThreadPoolExecutor(3) as pool:
+        codes = list(pool.map(lambda n: subprocess.call(
+            [sys.executable, "-W", "ignore", str(Path(__file__).parent / "run_one.py"), n, period]), todo))
+    assert not any(codes), dict(zip(todo, codes))
+    preds = {n: run(n, period) for n in names}
     df = table()
     preds = {"CAISO DAM": bt.rolling(df, bt.column("caiso_dam"), period), **preds}
     print(bt.score(df, preds, period).round(2).to_string())
