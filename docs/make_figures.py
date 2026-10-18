@@ -47,22 +47,22 @@ def battery_gap():
     prof = d.groupby("hour")[["load_oasis", "load", "caiso_dam"]].mean() / 1000
     fig, ax = plt.subplots(figsize=(8, 4.2))
     x = prof.index
-    ax.fill_between(x, prof.load, prof.load_oasis, color=AQUA, alpha=0.15, lw=0)
-    ax.plot(x, prof.load_oasis, color=AQUA, lw=2)
-    ax.plot(x, prof.load, color=BLUE, lw=2)
-    ax.plot(x, prof.caiso_dam, color=ORANGE, lw=2, ls=(0, (4, 3)))
-    label_end(ax, 23, prof.load[23], "demand (Today's Outlook)", BLUE, 4)
-    label_end(ax, 23, prof.caiso_dam[23], "CAISO's day-ahead forecast", ORANGE, -10)
+    ax.fill_between(x, prof.load, prof.load_oasis, color=AQUA, alpha=0.15, lw=0,
+                    label="gap = batteries charging")
+    ax.plot(x, prof.load_oasis, color=AQUA, lw=2, label='OASIS "actual load" (incl. battery charging)')
+    ax.plot(x, prof.load, color=BLUE, lw=2, label="demand, Today's Outlook (our target)")
+    ax.plot(x, prof.caiso_dam, color=ORANGE, lw=2, ls=(0, (4, 3)), label="CAISO's day-ahead forecast")
     gap = (prof.load_oasis - prof.load).idxmax()
-    ax.text(0.4, 32.4, 'OASIS "actual load"', fontsize=11, color=INK, fontweight="bold", va="bottom")
-    ax.text(0.4, 32.3, f"includes batteries charging\non midday solar\n(≈{prof.load_oasis[gap] - prof.load[gap]:.1f} GW at {gap}:00)",
-            fontsize=11, color=MUTED, va="top")
+    ax.annotate(f"≈{prof.load_oasis[gap] - prof.load[gap]:.1f} GW at {gap}:00",
+                (gap, (prof.load_oasis[gap] + prof.load[gap]) / 2), ha="center", fontsize=11, color=INK)
+    ax.legend(loc="upper left", frameon=False, fontsize=10.5, handlelength=2.2)
     ax.set_xlim(0, 23)
     ax.set_xticks([0, 6, 12, 18, 23], ["0:00", "6:00", "12:00", "18:00", "23:00"])
     ax.set_ylabel("GW")
     title(ax, "The forecast and the \"actual\" measure different things",
           "Average hourly load, Apr–Sep 2026, Pacific time")
-    fig.subplots_adjust(left=0.08, right=0.72, top=0.84, bottom=0.1)
+    ax.set_ylim(21.5, 36.5)    # headroom for the legend
+    fig.subplots_adjust(left=0.08, right=0.97, top=0.84, bottom=0.1)
     fig.savefig(os.path.join(OUT, "battery_gap.svg"))
 
 
@@ -106,12 +106,14 @@ def by_hour(df, preds):
     fig, ax = plt.subplots(figsize=(8, 4.0))
     for key, name, color in [("CAISO", "CAISO", ORANGE), ("A", "A", AQUA), ("B", "B", BLUE)]:
         e = (preds[key] - df.load).abs().groupby(df.hour).mean()
-        ax.plot(e.index, e.values, color=color, lw=2)
+        ax.plot(e.index, e.values, color=color, lw=2, label={
+            "CAISO": "CAISO day-ahead", "A": "A: ours, no CAISO inputs", "B": "B: ours + CAISO's forecast"}[key])
         label_end(ax, 23, e[23], name, color, {"CAISO": -2, "A": 10, "B": -8}[key])
     ax.set_xlim(0, 23)
     ax.set_ylim(0, None)
     ax.set_xticks([0, 6, 12, 18, 23], ["0:00", "6:00", "12:00", "18:00", "23:00"])
     ax.set_ylabel("MAE (MW)")
+    ax.legend(loc="upper left", frameon=False, fontsize=10.5)
     title(ax, "Errors peak midday, when rooftop solar moves demand the most",
           "Test period, mean absolute error by hour of day")
     fig.subplots_adjust(left=0.1, right=0.9, top=0.84, bottom=0.1)
