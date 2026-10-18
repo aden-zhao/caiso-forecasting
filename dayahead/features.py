@@ -84,6 +84,11 @@ def weather_features(h: pd.DataFrame, wide: pd.DataFrame, prefix: str, per_city:
     if not daily:
         return f
     t = f[f"{prefix}w_temperature_2m"]
+    # buildings lag the air temperature: recent hours and the trailing day
+    for k in (1, 2, 3):
+        f[f"{prefix}t_prev{k}"] = t.shift(k)
+    f[f"{prefix}t_roll24"] = t.rolling(24, min_periods=12).mean()
+    f[f"{prefix}t_roll6max"] = t.rolling(6, min_periods=3).max()
     f[f"{prefix}cdd"] = (t - 18).clip(lower=0)
     f[f"{prefix}hdd"] = (15 - t).clip(lower=0)
     T = day_hour(t, h)
@@ -91,6 +96,8 @@ def weather_features(h: pd.DataFrame, wide: pd.DataFrame, prefix: str, per_city:
         f[f"{prefix}tmax_{name}"] = T.max(axis=1).reindex(days).to_numpy()
         f[f"{prefix}tmean_{name}"] = T.mean(axis=1).reindex(days).to_numpy()
     f[f"{prefix}tmin_d0"] = T.min(axis=1).reindex(h.day).to_numpy()
+    # multi-day heat build-up
+    f[f"{prefix}heat3"] = f[f"{prefix}tmax_d0"] + f[f"{prefix}tmax_d1"] + f[f"{prefix}tmax_d2"]
     # temperature at the same hour two days ago, to pair with the load lag
     f[f"{prefix}t_lag2"] = lookup(T, h.day - 2 * ONE, h.hour)
     f[f"{prefix}t_delta2"] = t - f[f"{prefix}t_lag2"]

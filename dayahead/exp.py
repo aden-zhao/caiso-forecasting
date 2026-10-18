@@ -2,12 +2,14 @@
 
     python exp.py dev base sh_ratio ...     # run (or load cached) and compare with CAISO
 """
+import multiprocessing
 import sys
 from concurrent.futures import ProcessPoolExecutor
 from functools import lru_cache
 from pathlib import Path
 
 import pandas as pd
+import torch  # noqa: F401  must load before lightgbm, or torch segfaults (two OpenMP runtimes)
 
 import backtest as bt
 import features
@@ -61,13 +63,49 @@ EXPS = {
 }
 
 
+FF5 = {"feature_fraction": 0.5}
+A_BASE = lambda df: bt.lgbm(bt.feature_cols(df) + ["t_years"], "d1_morning", "ratio", params=FF5)
+EXPS.update({
+    "a_thermal": ({}, A_BASE),   # same as a_ff5, after adding thermal-lag features
+    "a_perhour": ({}, lambda df: bt.per_hour(lambda: bt.lgbm(
+        bt.feature_cols(df) + ["t_years"], "d1_morning", "ratio",
+        params={**FF5, "num_leaves": 15, "min_data_in_leaf": 30}, rounds=600))),
+    "a_from2020": ({}, A_BASE),
+})
+TRAIN_START = {"a_from2020": "2020-01-10"}
+
+
+def _mlp(df, **kw):
+    import nn
+    return nn.mlp(df, **kw)
+
+
+EXPS.update({
+    "mlp": ({}, lambda df: _mlp(df)),
+    "mlp_e100": ({}, lambda df: _mlp(df, epochs=100)),
+    "mlp_wide": ({}, lambda df: _mlp(df, epochs=150, width=512)),
+    "mlp_2020": ({}, lambda df: _mlp(df)),
+})
+MLP_VARIANTS = {
+    "mlp_s10": dict(seeds=10),
+    "mlp_reg": dict(dropout=0.2, wd=1e-3),
+    "mlp_e150": dict(epochs=150),
+    "mlp_w128": dict(width=128),
+    "mlp_reg_e150": dict(dropout=0.2, wd=1e-3, epochs=150),
+}
+for _n, _kw in MLP_VARIANTS.items():
+    EXPS[_n] = ({}, lambda df, _kw=_kw: _mlp(df, **_kw))
+for _n in ["mlp_2020", *MLP_VARIANTS]:
+    TRAIN_START[_n] = "2020-01-10"
+
+
 def run(name: str, period: str) -> pd.Series:
     path = RES / f"{period}_{name}.parquet"
     if path.exists():
         return pd.read_parquet(path)["pred"]
     args, make = EXPS[name]
     df = table(**args)
-    pred = bt.rolling(df, make(df), period)
+    pred = bt.rolling(df, make(df), period, TRAIN_START.get(name, bt.TRAIN_START))
     RES.mkdir(exist_ok=True)
     pred.rename("pred").to_frame().to_parquet(path)
     return pred
@@ -76,11 +114,14 @@ def run(name: str, period: str) -> pd.Series:
 def _run(job):
     import lightgbm  # noqa: F401  (each worker sets its own thread count below)
     bt.LGB_PARAMS["num_threads"] = 3
+    import torch
+    torch.set_num_threads(3)
     return run(*job)
 
 
 def main(period: str, *names: str) -> None:
-    with ProcessPoolExecutor(3) as pool:
+    # spawn: forked workers crash once torch is loaded on macOS
+    with ProcessPoolExecutor(3, mp_context=multiprocessing.get_context("spawn")) as pool:
         preds = dict(zip(names, pool.map(_run, [(n, period) for n in names])))
     df = table()
     preds = {"CAISO DAM": bt.rolling(df, bt.column("caiso_dam"), period), **preds}

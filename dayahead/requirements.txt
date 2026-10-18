@@ -6,3 +6,4 @@ scikit-learn
 lightgbm
 matplotlib
 holidays
+torch
