@@ -14,7 +14,6 @@ import pandas as pd
 from data import CITIES, CITY_WEIGHT, LAST_KNOWN_HOUR, TZ, hourly, weather_at_issue, weighted
 
 ONE = pd.Timedelta(days=1)
-TOTAL_WEIGHT = sum(CITY_WEIGHT.values())
 
 
 def day_hour(s: pd.Series, h: pd.DataFrame) -> pd.DataFrame:
@@ -69,27 +68,29 @@ def clear_sky(index: pd.DatetimeIndex) -> pd.DataFrame:
 
 
 def weather_features(h: pd.DataFrame, wide: pd.DataFrame, prefix: str, variables: tuple,
-                     per_city: bool, daily: bool) -> pd.DataFrame:
+                     per_city: bool, daily: bool, cities: list[str] | None = None) -> pd.DataFrame:
     """Hourly weather features from a wide `<var>|<city>` table.
 
-    variables are averaged over cities (population-weighted); per_city adds each
-    city's temperature; daily adds daily temperature summaries.
+    variables are averaged (population-weighted) over `cities`, default all;
+    per_city adds each city's temperature; daily adds daily temperature summaries.
     """
     wide = wide.reindex(h.index)
+    cities = cities or list(CITIES)
+    local = wide[[c for c in wide.columns if c.split("|")[1] in cities]]
     f = pd.DataFrame(index=h.index)
     if per_city:
         for c in wide.columns:
             if c.startswith("temperature_2m|"):
                 f[f"{prefix}t_{c.split('|')[1]}"] = wide[c]
     for var in variables:
-        f[f"{prefix}w_{var}"] = weighted(wide, var)
+        f[f"{prefix}w_{var}"] = weighted(local, var)
     if "cloud_cover" in variables:
         # cloud-attenuated clear-sky irradiance, weighted over cities: a rooftop-solar proxy
         # (Kasten-Czeplak cloud attenuation)
-        cs = clear_sky(h.index)
+        cs = clear_sky(h.index)[cities]
         f[f"{prefix}solar_proxy"] = sum(
             CITY_WEIGHT[c] * cs[c] * (1 - 0.75 * (wide[f"cloud_cover|{c}"] / 100) ** 3.4)
-            for c in cs.columns) / TOTAL_WEIGHT
+            for c in cities) / sum(CITY_WEIGHT[c] for c in cities)
     if not daily:
         return f
     t = f[f"{prefix}w_temperature_2m"]
@@ -123,13 +124,15 @@ def calendar_features(h: pd.DataFrame) -> pd.DataFrame:
     return f
 
 
-def build() -> pd.DataFrame:
+def build(cities: tuple[str, ...] | None = None) -> pd.DataFrame:
     """The full table: one row per UTC hour.
 
     Main weather is GFS (temperatures from 2021-03; cloud and sunshine from 2024),
     with temperature gaps filled from JMA. JMA's cloud cover is added as its own
     features because it is the only cloud forecast that goes back to 2020.
+    cities: average the weather over these cities only (default: all of CAISO).
     """
+    cities = list(cities) if cities else None
     h = hourly()
     gfs = weather_at_issue("gfs_seamless")
     jma = weather_at_issue("jma_seamless")
@@ -139,9 +142,9 @@ def build() -> pd.DataFrame:
             gfs[c] = gfs[c].fillna(jma[c])
     parts = [h, load_features(h),
              weather_features(h, gfs, "", ("temperature_2m", "shortwave_radiation", "cloud_cover"),
-                              per_city=True, daily=True),
+                              per_city=True, daily=True, cities=cities),
              calendar_features(h),
-             weather_features(h, jma, "jma_", ("cloud_cover",), per_city=False, daily=False)]
+             weather_features(h, jma, "jma_", ("cloud_cover",), per_city=False, daily=False, cities=cities)]
     f = pd.concat(parts, axis=1)
     f = f.loc[:, ~f.columns.duplicated()]        # 'hour' is in both h and the calendar
     # a linear trend, last so column order (which LightGBM's feature sampling uses) stays fixed

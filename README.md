@@ -33,7 +33,9 @@ So the target here is CAISO's [Today's Outlook](https://www.caiso.com/todays-out
 
 ![Error by hour of day](docs/figures/by_hour.svg)
 
-Didn't help: linear-leaf trees, correcting recent bias, an L1 loss, more MLP tuning, and forecasting each region separately and adding them up (within noise of one model for the total, `regional.py`). The original 69-feature model and every experiment along the way are at tag `v1-full-features`.
+- **Forecasting each region and adding them up** (`regional.py`, on battery-free regional demand we reconstruct) helped a single tree model (590 → 570 MW, on all 3 seeds) but not the MLP (562 → 566), and barely moved the final ensemble. So we kept one model for the total.
+
+Didn't help: linear-leaf trees, correcting recent bias, an L1 loss, more MLP tuning. The original 69-feature model and every experiment along the way are at tag `v1-full-features`.
 
 ## Running it
 
