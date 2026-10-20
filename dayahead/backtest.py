@@ -20,7 +20,7 @@ TRAIN_START = "2021-03-15"   # GFS archived forecasts start 2021-03 (JMA fills e
 # Columns that are not model inputs: targets, keys, and things only known after the fact.
 # CAISO's forecasts are opt-in inputs (see exp.py).
 NOT_FEATURES = {"load", "load_oasis", "day", "issue_utc", "caiso_dam", "caiso_2da",
-                "batteries", "solar", "t_years"}
+                "batteries", "solar"}
 
 
 def metrics(y: np.ndarray, p: np.ndarray) -> dict:
@@ -66,8 +66,7 @@ def column(name: str) -> Callable:
 
 
 def feature_cols(df: pd.DataFrame) -> list[str]:
-    """Default model inputs. The t_years trend is left out because trees can't
-    extrapolate it; experiments add it explicitly."""
+    """Model inputs: every column except targets, keys and CAISO's forecasts."""
     return [c for c in df.columns if c not in NOT_FEATURES]
 
 

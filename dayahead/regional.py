@@ -35,7 +35,7 @@ def table_for(target: pd.Series) -> pd.DataFrame:
 
 def forecast(target: pd.Series) -> pd.Series:
     df = table_for(target)
-    model = exp.EXPS["a_from2020"]
+    model = exp.EXPS["trees"]
     return bt.rolling(df, model.make(df), "dev", model.train_start)
 
 

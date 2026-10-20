@@ -31,8 +31,7 @@ CITIES = {
     "bakersfield":  (35.37, -119.02, 0.9),
 }
 CITY_WEIGHT = {city: w for city, (_, _, w) in CITIES.items()}
-WEATHER_VARS = ["temperature_2m", "dew_point_2m", "relative_humidity_2m",
-                "shortwave_radiation", "cloud_cover", "wind_speed_10m"]
+WEATHER_VARS = ["temperature_2m", "shortwave_radiation", "cloud_cover"]
 
 # When an archived weather forecast was usable (see weather_at_issue)
 DAY1_MIN_LEAD = pd.Timedelta(hours=23)     # day1 values come from runs >= 23 h before valid time
@@ -67,7 +66,7 @@ def hourly() -> pd.DataFrame:
     return df
 
 
-def weather_at_issue(model: str, policy: str = "legit") -> pd.DataFrame:
+def weather_at_issue(model: str) -> pd.DataFrame:
     """Weather forecast for each valid hour, as known at that day's issue time.
 
     Open-Meteo's `_previous_day1` comes from the run initialised 24-29 h before
@@ -76,9 +75,6 @@ def weather_at_issue(model: str, policy: str = "legit") -> pd.DataFrame:
     valid - DAY1_MIN_LEAD + PUBLISH_DELAY <= issue (the first few hours of D),
     and day2 for every hour of D. We checked this mapping against Open-Meteo's
     single-run archive for Sep 2026.
-
-    policy='day1' uses day1 everywhere: fresher than we could really have, an
-    upper bound for ablations only.
     """
     wx = pd.read_parquet(DATA / f"wx_fcst_{model}.parquet")
     wx["lead"] = wx.variable.str[-1].astype(int)
@@ -86,8 +82,6 @@ def weather_at_issue(model: str, policy: str = "legit") -> pd.DataFrame:
     wide = wx.pivot_table(index="time_utc", columns=["city", "var", "lead"], values="value")
     issue = hourly()["issue_utc"].reindex(wide.index)
     day1_ok = (wide.index - DAY1_MIN_LEAD + PUBLISH_DELAY) <= issue
-    if policy == "day1":
-        day1_ok = np.ones(len(wide), dtype=bool)
     out = {}
     for city, var in {(c, v) for c, v, _ in wide.columns}:   # prefer day1, fall back to day2
         d1 = wide.get((city, var, 1))
@@ -97,13 +91,6 @@ def weather_at_issue(model: str, policy: str = "legit") -> pd.DataFrame:
             col = col.where(~day1_ok | d1.isna(), d1)
         out[f"{var}|{city}"] = col
     return pd.DataFrame(out).sort_index(axis=1)
-
-
-def observed_weather() -> pd.DataFrame:
-    wx = pd.read_parquet(DATA / "wx_obs.parquet")
-    wide = wx.pivot_table(index="time_utc", columns=["variable", "city"], values="value")
-    wide.columns = [f"{v}|{c}" for v, c in wide.columns]
-    return wide
 
 
 def weighted(wide: pd.DataFrame, var: str) -> pd.Series:

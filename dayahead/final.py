@@ -15,8 +15,8 @@ import pandas as pd
 import backtest as bt
 import exp
 
-A_PARTS = ["mlp_reg_e150", "a_from2020", "a_perhour"]
-B_EXTRA = "ondam_diff"
+A_PARTS = ["mlp_day", "trees", "trees_by_hour"]
+B_EXTRA = "caiso_correction"
 
 
 def bootstrap_gap(y, p, ref, days, n=2000, seed=0):

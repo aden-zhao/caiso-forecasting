@@ -1,12 +1,12 @@
-"""Download archived weather forecasts (and observed weather) for CAISO load centers.
+"""Download archived weather forecasts for CAISO load centers.
 
 Forecasts come from Open-Meteo's Previous Runs API: `<var>_previous_dayN` is what
 the model predicted N days before the valid time. That is what a forecaster
 actually had, unlike observed weather.
 
-    python fetch_weather.py <model>|obs <start> <end>    # e.g. gfs_seamless 2021-03-01 2026-10-16
+    python fetch_weather.py <model> <start> <end>    # e.g. gfs_seamless 2021-03-01 2026-10-16
 
-Writes data/wx_fcst_<model>.parquet and data/wx_obs.parquet, long format:
+Writes data/wx_fcst_<model>.parquet, long format:
     time_utc, city, variable, value
 """
 import sys
@@ -61,22 +61,7 @@ def fetch_forecasts(model: str, start: str, end: str) -> None:
     pd.concat(frames).to_parquet(OUT / f"wx_fcst_{model}.parquet", index=False)
 
 
-def fetch_observed(start: str, end: str) -> None:
-    frames = []
-    for city, (lat, lon, _) in CITIES.items():
-        js = get("https://archive-api.open-meteo.com/v1/archive", {
-            "latitude": lat, "longitude": lon, "start_date": start, "end_date": end,
-            "hourly": ",".join(VARS), "timezone": "GMT"})
-        frames.append(to_long(js, city))
-        print("obs", city, len(frames[-1]), flush=True)
-        time.sleep(5)
-    pd.concat(frames).to_parquet(OUT / "wx_obs.parquet", index=False)
-
-
 if __name__ == "__main__":
-    what, start, end = sys.argv[1:4]
+    model, start, end = sys.argv[1:4]
     OUT.mkdir(exist_ok=True)
-    if what == "obs":
-        fetch_observed(start, end)
-    else:
-        fetch_forecasts(what, start, end)
+    fetch_forecasts(model, start, end)

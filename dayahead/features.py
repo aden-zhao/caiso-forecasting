@@ -2,13 +2,16 @@
 
 Load features come from days D-8 .. D-2 and the morning of D-1; weather features
 are forecasts as of the issue time (data.weather_at_issue).
+
+These are the 50 features left after an ablation on 2024: the other 19 we had
+(thermal lags, degree days, humidity/wind, ...) duplicated information that is
+already here. The full 69-feature version is at git tag v1-full-features.
 """
 import holidays
 import numpy as np
 import pandas as pd
 
-from data import (CITIES, CITY_WEIGHT, LAST_KNOWN_HOUR, TZ, WEATHER_VARS, hourly,
-                  observed_weather, weather_at_issue, weighted)
+from data import CITIES, CITY_WEIGHT, LAST_KNOWN_HOUR, TZ, hourly, weather_at_issue, weighted
 
 ONE = pd.Timedelta(days=1)
 TOTAL_WEIGHT = sum(CITY_WEIGHT.values())
@@ -31,15 +34,11 @@ def load_features(h: pd.DataFrame, col: str = "load") -> pd.DataFrame:
     L = day_hour(h[col], h)
     D, hr = h.day, h.hour
     f = pd.DataFrame(index=h.index)
+    # same hour 2-8 days ago: the last week's shape, incl. how deep the midday solar dip is lately
     for k in range(2, 9):
         f[f"lag{k}"] = lookup(L, D - k * ONE, hr)
     # yesterday's same hour is only known for the morning hours
     f["lag1"] = np.where(hr <= LAST_KNOWN_HOUR, lookup(L, D - ONE, hr), np.nan)
-    # recent same-hour level: tracks the midday dip as rooftop solar grows
-    recent = f[[f"lag{k}" for k in range(2, 9)]]
-    f["sh_mean"] = recent.mean(axis=1)
-    f["sh_median"] = recent.median(axis=1)
-    f["sh_min"] = recent.min(axis=1)
     morning = L.loc[:, :LAST_KNOWN_HOUR].mean(axis=1)
     daily_mean = L.mean(axis=1)
     f["d1_morning"] = morning.reindex(D - ONE).to_numpy()      # the latest known load level
@@ -69,12 +68,12 @@ def clear_sky(index: pd.DatetimeIndex) -> pd.DataFrame:
     return pd.DataFrame(out, index=index)
 
 
-def weather_features(h: pd.DataFrame, wide: pd.DataFrame, prefix: str, per_city: bool,
-                     daily: bool) -> pd.DataFrame:
+def weather_features(h: pd.DataFrame, wide: pd.DataFrame, prefix: str, variables: tuple,
+                     per_city: bool, daily: bool) -> pd.DataFrame:
     """Hourly weather features from a wide `<var>|<city>` table.
 
-    per_city adds each city's temperature; daily adds temperature history and
-    daily summaries (used for the main weather source only).
+    variables are averaged over cities (population-weighted); per_city adds each
+    city's temperature; daily adds daily temperature summaries.
     """
     wide = wide.reindex(h.index)
     f = pd.DataFrame(index=h.index)
@@ -82,10 +81,9 @@ def weather_features(h: pd.DataFrame, wide: pd.DataFrame, prefix: str, per_city:
         for c in wide.columns:
             if c.startswith("temperature_2m|"):
                 f[f"{prefix}t_{c.split('|')[1]}"] = wide[c]
-    for var in WEATHER_VARS:
-        if any(c.startswith(var + "|") for c in wide.columns):
-            f[f"{prefix}w_{var}"] = weighted(wide, var)
-    if f"{prefix}w_cloud_cover" in f:
+    for var in variables:
+        f[f"{prefix}w_{var}"] = weighted(wide, var)
+    if "cloud_cover" in variables:
         # cloud-attenuated clear-sky irradiance, weighted over cities: a rooftop-solar proxy
         # (Kasten-Czeplak cloud attenuation)
         cs = clear_sky(h.index)
@@ -95,20 +93,11 @@ def weather_features(h: pd.DataFrame, wide: pd.DataFrame, prefix: str, per_city:
     if not daily:
         return f
     t = f[f"{prefix}w_temperature_2m"]
-    # buildings lag the air temperature: recent hours and the trailing day
-    for k in (1, 2, 3):
-        f[f"{prefix}t_prev{k}"] = t.shift(k)
-    f[f"{prefix}t_roll24"] = t.rolling(24, min_periods=12).mean()
-    f[f"{prefix}t_roll6max"] = t.rolling(6, min_periods=3).max()
-    f[f"{prefix}cdd"] = (t - 18).clip(lower=0)
-    f[f"{prefix}hdd"] = (15 - t).clip(lower=0)
     T = day_hour(t, h)
     for name, days in [("d0", h.day), ("d1", h.day - ONE), ("d2", h.day - 2 * ONE)]:
         f[f"{prefix}tmax_{name}"] = T.max(axis=1).reindex(days).to_numpy()
         f[f"{prefix}tmean_{name}"] = T.mean(axis=1).reindex(days).to_numpy()
     f[f"{prefix}tmin_d0"] = T.min(axis=1).reindex(h.day).to_numpy()
-    # multi-day heat build-up
-    f[f"{prefix}heat3"] = f[f"{prefix}tmax_d0"] + f[f"{prefix}tmax_d1"] + f[f"{prefix}tmax_d2"]
     # temperature at the same hour two days ago, to pair with the load lag
     f[f"{prefix}t_lag2"] = lookup(T, h.day - 2 * ONE, h.hour)
     f[f"{prefix}t_delta2"] = t - f[f"{prefix}t_lag2"]
@@ -116,7 +105,6 @@ def weather_features(h: pd.DataFrame, wide: pd.DataFrame, prefix: str, per_city:
 
 
 def calendar_features(h: pd.DataFrame) -> pd.DataFrame:
-    """Calendar features. t_years (a linear trend) is opt-in: see backtest.feature_cols."""
     hol = holidays.country_holidays("US", subdiv="CA", years=range(2019, 2028))
     days = h.day.dt.date
     f = pd.DataFrame(index=h.index)
@@ -132,44 +120,30 @@ def calendar_features(h: pd.DataFrame) -> pd.DataFrame:
     f["doy_sin"] = np.sin(2 * np.pi * doy / 365.25)
     f["doy_cos"] = np.cos(2 * np.pi * doy / 365.25)
     f["dst"] = (h.index.tz_convert(TZ).strftime("%Z") == "PDT").astype(int)
-    f["clear_sky"] = (clear_sky(h.index) * pd.Series(CITY_WEIGHT)).sum(axis=1) / TOTAL_WEIGHT
-    f["t_years"] = (h.day - pd.Timestamp("2021-01-01")).dt.days / 365.25
     return f
 
 
-def forecast_weather(model: str, fallback: str | None = None, policy: str = "legit") -> pd.DataFrame:
-    """Forecasts from `model`, with missing temperatures filled from `fallback`."""
-    wide = weather_at_issue(model, policy)
-    if fallback:
-        fb = weather_at_issue(fallback, policy)
-        wide = wide.reindex(wide.index.union(fb.index))
-        # only temperature is filled: GFS's other variables start in 2024, and JMA's
-        # are available separately as their own features
-        for c in fb.columns:
-            if c in wide and c.startswith("temperature_2m|"):
-                wide[c] = wide[c].fillna(fb[c])
-    return wide
-
-
-def build(main: str = "gfs_seamless", extra: tuple = ("jma_seamless",),
-          policy: str = "legit") -> pd.DataFrame:
+def build() -> pd.DataFrame:
     """The full table: one row per UTC hour.
 
-    main: weather source for the primary features. 'obs' uses observed weather,
-      an oracle for ablations only. Gaps in GFS temperatures are filled from JMA.
-    extra: more forecast models, added as prefixed CAISO-wide features (JMA's
-      cloud cover is the only cloud forecast that goes back to 2020).
-    policy: see data.weather_at_issue.
+    Main weather is GFS (temperatures from 2021-03; cloud and sunshine from 2024),
+    with temperature gaps filled from JMA. JMA's cloud cover is added as its own
+    features because it is the only cloud forecast that goes back to 2020.
     """
     h = hourly()
-    if main == "obs":
-        wide = observed_weather()
-    else:
-        wide = forecast_weather(main, "jma_seamless" if main == "gfs_seamless" else None, policy)
-    parts = [h, load_features(h), weather_features(h, wide, "", per_city=True, daily=True),
-             calendar_features(h)]
-    for m in extra:
-        parts.append(weather_features(h, weather_at_issue(m, policy), m.split("_")[0] + "_",
-                                      per_city=False, daily=False))
+    gfs = weather_at_issue("gfs_seamless")
+    jma = weather_at_issue("jma_seamless")
+    gfs = gfs.reindex(gfs.index.union(jma.index))
+    for c in gfs.columns:
+        if c.startswith("temperature_2m|"):
+            gfs[c] = gfs[c].fillna(jma[c])
+    parts = [h, load_features(h),
+             weather_features(h, gfs, "", ("temperature_2m", "shortwave_radiation", "cloud_cover"),
+                              per_city=True, daily=True),
+             calendar_features(h),
+             weather_features(h, jma, "jma_", ("cloud_cover",), per_city=False, daily=False)]
     f = pd.concat(parts, axis=1)
-    return f.loc[:, ~f.columns.duplicated()]     # 'hour' is in both h and the calendar
+    f = f.loc[:, ~f.columns.duplicated()]        # 'hour' is in both h and the calendar
+    # a linear trend, last so column order (which LightGBM's feature sampling uses) stays fixed
+    f["t_years"] = (f.day - pd.Timestamp("2021-01-01")).dt.days / 365.25
+    return f

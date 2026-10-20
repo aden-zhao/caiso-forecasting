@@ -21,7 +21,7 @@ from features import day_hour
 THREADS = 3
 HOURLY = ["w_temperature_2m", "t_los_angeles", "t_riverside", "t_santa_ana", "t_san_diego",
           "t_san_jose", "t_oakland", "t_sacramento", "t_fresno", "t_bakersfield", "t_palm_springs",
-          "jma_w_cloud_cover", "jma_w_dew_point_2m", "jma_solar_proxy", "clear_sky"]
+          "jma_w_cloud_cover", "jma_solar_proxy"]
 DAILY = ["dow", "holiday", "holiday_adj", "lag2_offday", "lag7_holiday", "doy_sin", "doy_cos", "t_years"]
 
 
