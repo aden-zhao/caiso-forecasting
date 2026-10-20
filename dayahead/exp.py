@@ -97,6 +97,54 @@ EXPS = {
 }
 
 
+# ---- ablation: drop one feature group at a time from a_from2020 (dev only) ----
+# The core (hour, dow, holiday, d1_morning, lag1/2/7, weighted temperature) always stays.
+ABLATION_GROUPS = {
+    "extra_lags":     ["lag3", "lag4", "lag5", "lag6", "lag8"],
+    "recent_summary": ["sh_mean", "sh_median", "sh_min"],
+    "day_summary":    ["d1_last", "d2_morning", "d2_mean", "d2_max", "d7_mean", "level_change"],
+    "city_temps":     [f"t_{c}" for c in ("bakersfield", "fresno", "los_angeles", "oakland", "palm_springs",
+                                          "riverside", "sacramento", "san_diego", "san_jose", "santa_ana")],
+    "humidity_wind":  ["w_dew_point_2m", "w_relative_humidity_2m", "w_wind_speed_10m",
+                       "jma_w_dew_point_2m", "jma_w_relative_humidity_2m", "jma_w_wind_speed_10m"],
+    "gfs_cloud_2024": ["w_shortwave_radiation", "w_cloud_cover", "solar_proxy"],
+    "jma_cloud":      ["jma_w_cloud_cover", "jma_solar_proxy"],
+    "jma_temp":       ["jma_w_temperature_2m"],
+    "clear_sky":      ["clear_sky"],
+    "thermal":        ["t_prev1", "t_prev2", "t_prev3", "t_roll24", "t_roll6max", "heat3"],
+    "daily_temps":    ["tmax_d0", "tmean_d0", "tmax_d1", "tmean_d1", "tmax_d2", "tmean_d2", "tmin_d0",
+                       "t_lag2", "t_delta2"],
+    "degree_days":    ["cdd", "hdd"],
+    "holiday_flags":  ["holiday_adj", "lag2_offday", "lag7_holiday"],
+    "season_dst":     ["doy_sin", "doy_cos", "dst"],
+    "trend":          ["t_years"],
+}
+
+
+def lgbm_without(drop: list[str], seed: int = 0) -> Callable:
+    """a_from2020's model with some features removed."""
+    return lambda df: bt.lgbm([c for c in bt.feature_cols(df) + ["t_years"] if c not in drop],
+                              **RATIO, params=FF5, seed=seed)
+
+
+for _g, _cols in ABLATION_GROUPS.items():
+    EXPS[f"abl_no_{_g}"] = Exp(lgbm_without(_cols), train_start=FROM_2020)
+for _s in (1, 2):   # same model, other seeds: how big is run-to-run noise?
+    EXPS[f"abl_seed{_s}"] = Exp(lgbm_without([], seed=_s), train_start=FROM_2020)
+
+# pruned feature sets, 3 seeds each (seed-to-seed noise is ~18 MW on dev)
+KEEP_MINIMAL = ["trend", "season_dst", "jma_cloud"]
+KEEP_MODERATE = KEEP_MINIMAL + ["day_summary", "city_temps", "holiday_flags", "gfs_cloud_2024"]
+# lean: drop only groups that have a kept stand-in (thermal/degree days ~ daily temps,
+# recent summaries ~ lags, clear sky ~ solar proxies, JMA temp ~ GFS temp) + humidity/wind
+DROP_LEAN = ["thermal", "degree_days", "recent_summary", "clear_sky", "jma_temp", "humidity_wind"]
+KEEP_LEAN = [g for g in ABLATION_GROUPS if g not in DROP_LEAN]
+for _name, _keep in [("minimal", KEEP_MINIMAL), ("moderate", KEEP_MODERATE), ("lean", KEEP_LEAN)]:
+    _drop = [c for g, cols in ABLATION_GROUPS.items() if g not in _keep for c in cols]
+    for _s in (0, 1, 2):
+        EXPS[f"prune_{_name}_s{_s}"] = Exp(lgbm_without(_drop, seed=_s), train_start=FROM_2020)
+
+
 @lru_cache
 def table(main: str = "gfs_seamless", extra: tuple = ("jma_seamless",), policy: str = "legit") -> pd.DataFrame:
     return features.build(main, extra, policy)

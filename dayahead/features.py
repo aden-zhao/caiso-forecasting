@@ -27,8 +27,8 @@ def lookup(dh: pd.DataFrame, days: pd.Series, hours: pd.Series) -> np.ndarray:
     return stacked.reindex(idx).to_numpy()
 
 
-def load_features(h: pd.DataFrame) -> pd.DataFrame:
-    L = day_hour(h["load"], h)
+def load_features(h: pd.DataFrame, col: str = "load") -> pd.DataFrame:
+    L = day_hour(h[col], h)
     D, hr = h.day, h.hour
     f = pd.DataFrame(index=h.index)
     for k in range(2, 9):
